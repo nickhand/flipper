@@ -1,0 +1,14 @@
+mapPairs = [["coaddedWeighted_setting_s02h00.fits", "coaddedWeighted_rising_s02h00.fits"], \
+            ["coaddedWeighted_setting_s03h00.fits", "coaddedWeighted_rising_s03h00.fits"], \
+            ["coaddedWeighted_setting_s04h00.fits", "coaddedWeighted_rising_s04h00.fits"], \
+            ["coaddedWeighted_setting_s05h00.fits", "coaddedWeighted_rising_s05h00.fits"], \
+            ["coaddedWeighted_setting_s06h00.fits", "coaddedWeighted_rising_s06h00.fits"]]
+outdir   = "spectra"
+yrange   = [-200,200]
+elrange  = [1000,10000]
+beam = 1.4
+factor = 2.
+title = "Null Spectrum"
+
+
+            

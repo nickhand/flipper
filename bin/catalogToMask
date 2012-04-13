@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+
+from flipper import *
+import sys, os
+
+def main():
+    
+    paramFile = sys.argv[1]
+    params = flipperDict.flipperDict()
+    params.readFromFile(paramFile)
+    m = liteMap.liteMapFromFits(params['map']) # first read in a map
+
+    mask = m.copy()
+    mask.data[:]= 0.0
+   
+    f = file(params['catalog'])# next the ascii catalog
+    g = open(params['outputCatalog'],'w')# open an output file
+
+    # For all sources above some "fluxMin" in milliJanskies
+    # Make a map where the pixel corresponding to the source contains the uK value corresponding to
+    # the source flux distributed over that pixel
+    print "making holes"
+    flux_min = params['fluxMin']
+    makeHoles(f, mask, flux_min, freqGHz = params['freqGHz'], raColumn=params['raColumn'], 
+            decColumn = params['decColumn'], fluxColumn = params['fluxColumn'], outputCatalog = g)
+
+    #
+    # Covolve map of point sources with our beam
+    #
+    print 'now convolving'
+    if params['beamTransform'] == None:
+        mask=mask.convolveWithGaussian(fwhm = params['beamFWHM'], nSigma = params['beamFilterKernelSizeNSigma'])
+    else:
+        filt = liteMap.liteMapFromFits(params['beamTransform'])
+        ft = numpy.fft.fft2(mask.data)
+        ft *= filt.data
+        mask.data = numpy.real(numpy.fft.ifft2(ft))
+
+    mask.writeFits("sourceTemplate.fits")
+
+    # divide by our noise rms in the characteristic solid angle of a source to get a signal to noise map
+    print 'normalize by noize rms'
+    sourceArea = numpy.pi*(params['beamFWHM'])**2/4.
+    sigman =  params['noiseRMS']/numpy.sqrt(sourceArea)
+    nsigma =  params['brightnessCutLevel']
+   
+    # mask anything in the S/N map larger than a threshold
+    mask.data[:]= mask.data[:]/sigman
+    ind1 = numpy.where( mask.data[:] > nsigma )
+    ind0 = numpy.where( mask.data[:] <= nsigma )
+    mask.data[ind1] = 0.0
+    mask.data[ind0] = 1.0
+  
+    print 'writing mask'
+    mask.writeFits(params['mask'])
+
+    
+def makeHoles( catalog, mask, flux_min, freqGHz = 148, raColumn=0, decColumn=1, 
+        fluxColumn=2, outputCatalog=None ):
+    """
+    @brief fill mask with pixel sized sources
+    """
+    f=catalog
+    
+    Nx = mask.Nx
+    Ny = mask.Ny
+    pix_area = mask.pixScaleX * mask.pixScaleY
+    print pix_area
+    
+    # for right ascension ra(x1) < ra(x0) unless we go over ra = 0
+    # XXX semi-kludge: this assumption may not be correct in some corner cases
+    #                  which may or may not be due to bugs upstream
+    x1 = mask.x1; x0 = mask.x0; y0 = mask.y0; y1 = mask.y1
+    if mask.x1 > mask.x0:
+        isIn = lambda x,y: (x > x1 or x < x0) and y > y0 and y< y1
+    else:
+        isIn = lambda x,y: x > x1 and x < x0 and y > y0 and y< y1
+    
+    lines = f.readlines()
+    for line in lines:
+        fields = line[:-1].split()  # split on white space (omitting new line)
+        x = float(fields[raColumn])    # specify which field is the ra
+        y = float(fields[decColumn])    # specify which field is the dec 
+        flux = float(fields[fluxColumn])   # specify which field is the flux
+        if isIn(x, y) and flux>flux_min:
+            # select sources in the maps and a bogus flux limit
+            j,k = mask.skyToPix(x,y)
+            # now j is x pixel coordinate, k is y pixel coordinate
+            fluxJy = flux/1000.
+            JyPerSr = fluxJy/pix_area
+            if x > 48 and x <49:
+                print x, y , flux, pix_area, k, j
+                print JyPerSr
+            mask.data[numpy.round(k),numpy.round(j)]=JyPerSr
+            if outputCatalog:
+                outputCatalog.write(line)
+    mask.convertToMicroKFromJyPerSr(freqGHz)
+
+if __name__ == '__main__':
+    
+    main()

@@ -1,0 +1,27 @@
+#!/usr/bin/env python
+from flipper import *
+
+p = flipperDict.flipperDict()
+p.read_from_file(sys.argv[1])
+
+healpixMap = p['healpixMap']
+templateMap = p['templateMap']
+outDir = p['outDir']
+outName = p['outName']
+convertTouk = p['convertFromJyPerSrToMicroK']
+
+hpm = healpy.read_map(healpixMap)
+template = liteMap.liteMapFromFits(templateMap)
+
+template.loadDataFromHealpixMap(hpm,interpolate=True)
+
+try:
+    os.makedirs(outDir)
+except:
+    pass
+
+if convertTouk:
+    template.convertToMicroKFromJyPerSr(p['freqGHz'])
+
+template.writeFits(outDir+os.path.sep+outName)
+

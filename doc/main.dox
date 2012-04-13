@@ -1,0 +1,440 @@
+/**\mainpage Documentation for Flipper
+@author Sudeep Das & Tobias A. Marriage, Princeton University (2009)
+
+\section sec_contents Contents
+- \ref sec_intro
+- \ref sec_depends
+- \ref sec_install
+- \ref sec_maps
+  - \ref ssec_map_attr
+  - \ref ssec_map_methods
+  - \ref ssec_map_other
+- \ref sec_fft
+    - \ref ssec_fft_attr
+    - \ref ssec_fft_methods
+- \ref sec_power
+    - \ref ssec_power_attr
+    - \ref ssec_power_methods
+- \ref sec_prewhiten
+  - \ref ssec_prewhitener_methods
+- \ref sec_healpix_to_flat
+- \ref sec_gauss_random 
+- \ref sec_mtm
+- \ref sec_pcg
+- \ref sec_relnotes
+
+\section sec_intro Introduction
+Flipper is a light-weight python tool for working with CMB data which broadly provides
+three main functionalities:
+
+- A suite of tools for operations performed on maps, like application
+of filters, taking gradients etc. 
+ 
+- An FFT and power spectrum tool, implementing the core concepts from
+ Das, Hajian and Spergel (2008) http://arxiv.org/abs/0809.1092v1 
+
+- A generic Preconditioned Conjugate Gradient solver for linear
+equations.
+
+\section sec_depends Dependencies
+Flipper should work out of the box if it can import the following:
+\arg numpy
+\arg scipy http://www.scipy.org/
+\arg pyfits http://www.stsci.edu/resources/software_hardware/pyfits
+\arg astLib http://astlib.sourceforge.net/
+\arg matplotlib http://matplotlib.sourceforge.net/
+\arg healpy http://code.google.com/p/healpy/
+
+
+\section sec_install Installation
+
+Flipper does not as yet have a standard python package installation. 
+This section gives a set of instructions for the current flipper installation.
+In the instructions, substitute "X.Y.Z" with the appropriate flipper version
+number sequence. Visit http://www.astro.princeton.edu/~act/flipper 
+to find valid version numbers.
+
+cd /path/where/you/want/flipper/to/live <br>
+wget http://www.astro.princeton.edu/~act/flipper/flipper-X.Y.Z.tar.gz <br>
+tar -xzf flipper-X.Y.Z.tar.gz <br>
+
+Then in your startup script (e.g., .bashrc) put in the following commands:
+
+export FLIPPER_DIR=/path/where/you/want/flipper/to/live/flipper-X.Y.Z <br>
+export PATH=$PATH:$FLIPPER_DIR/bin <br>
+export PYTHONPATH=$PYTHONPATH:$FLIPPER_DIR/python 
+
+
+\section sec_maps Working with Maps
+
+The basic class for dealing with maps is called the
+liteMap. Currently, a liteMap object can be created in one of two
+ways: 
+
+\arg Reading in a fits file: 
+\code  
+import liteMap
+myMap = liteMap.liteMapFromFits(file_name) 
+\endcode 
+ The fits file must have a valid WCS header.  See
+liteMap.liteMapFromFits for more details.  
+
+
+\arg By duplicating an existing liteMap: 
+\code myMap2 = myMap.copy() \endcode
+
+\subsection ssec_map_attr liteMap Attributes 
+
+Once created, the liteMap object binds to itself several attirbutes
+and methods.  The attributes are: the map dimensions, \c myMap.Nx, \c
+myMap.Ny, the pixel scales in \b radians \c myMap.pixScaleX, \c
+myMap.pixScaleY, and the data in the map, \c myMap.data. As a matter
+of convention, note that data is an array of size \c[Ny,Nx] i.e. the
+direction in which the row changes is identified with the Y-axis. The
+extremities of the map are recorded as \c myMap.x0, \c myMap.x1 etc.
+
+\subsection ssec_map_methods liteMap Methods
+
+Various methods  get bound to a liteMap object. See liteMap.liteMap for
+details. Here are our picks from the lot:
+
+\arg \b Plotting: The liteMap object myMap can be displayed by invoking \c
+myMap.plot()
+
+By default the ra, dec axes are labeled in sexagecimal units. To get
+decimal degree labels use axesLabels = 'decimal'. In addition to get
+RA ticks at every 10 degrees do a 
+\c myMap.plot(axesLabels='decimal',RATickSteps=10)
+
+
+
+\arg \b Beam-smoothing: Convolution with a Gaussian beam of FWHM 3
+\b arcmin can be performed by invoking 
+\code smoothMap = myMap.convolveWithGaussian(fwhm=3.). \endcode
+
+\arg \b Filtering: Filter a liteMap with a filter defined in Fourier
+(multipole) space as \f$[\ell,F_\ell]\f$. Here is an example, where we
+want to filter a map to only leave modes in the range
+\f$[300,1000]\f$:
+\code
+el = numpy.arange(10000)
+filteredMap = myMap.filterFromList([el,Fel])
+filteredMap.plot()
+\endcode
+\arg <b> Coverting between Jy/Sr and micro-Kelvin: </b>
+Suppose we have a liteMap, map, at 148 GHz in Jy/Sr.
+ We can convert it to uK as:
+\code
+map.convertToMicroKFromJyPerSr(freqGHz=148)
+\endcode
+If we had a map in uK and we wanted to go to Jy/Sr at 30 GHz,
+\code
+map.convertToJyPerSrFromMicroK(freqGHz=30)
+\endcode
+should do it.
+
+
+\subsection ssec_map_other Other Functions in liteMap.py
+
+See liteMap.py
+\arg liteMap.takeDivergence() Given two liteMaps representing two components
+of a vector field, this functions returns the divergence.
+
+
+
+\section sec_fft Working with FFTs 
+
+The base class defining a two-dimensional FFT of a liteMap is
+fft2D . The fft2D object is created from a liteMap object
+(a.k.a. taking the FFT of the map):
+\code
+import fftTools
+myFt = fftTools.fftFromLiteMap(myMap)
+\endcode 
+
+\subsection ssec_fft_attr fft2D Attributes
+
+fft2D has the same attributes as liteMap and some more. The actual fft
+is stored in the complex map \c myFt.kMap . The x and y Fourier
+frequencies (a.k.a. multipoles)  are stored as \c myFt.lx and \c
+myFt.ly. Also there is a 2-D array \c myFt.modLMap defining the modulus of the vector
+\f$\vec \ell\f$ at each pixel, and another 2-D array \c myFt.thetaMap,
+giving the angle that the vector subtends to the X-axis measured anti-clockwise. 
+
+\subsection ssec_fft_methods fft2D Methods
+
+Take a look in \link fftTools.fft2D fft2D \endlink.
+The method of special interest is \link fftTools.fft2D.mapFromFFT()
+mapFromFFT \endlink.
+ Here we give an
+example of how to filter a map with a specially designed anisotropic
+l-space filter.
+
+\code
+filter = numpy.cos(myFt.thetaMap)
+filtData =myFt.mapFromFFT(kFilter=filter)
+newMap = myMap.copy()
+newMap.data[:] = filtData[:]
+\endcode
+
+\section sec_power Power Spectrum Tools 
+
+The base class for power spectra is \link fftTools.power2D
+power2D\endlink, which is an object defining the 2-D power
+spectrum. It can be obtained either from fft2D objects or directly
+from liteMap objects:
+\code
+#Get the FFTs of two maps first and then the cross spectrum
+ft1 = fftTools.fftFromLiteMap(map1)
+ft2 = fftTools.fftFromLiteMap(map2)
+crossPower2D_indirect = fftTools.powerFromFFT(ft1,ft2)
+
+#Get the crossPower directly
+crossPower2D = fftTools.powerFromLiteMap(map1,map2)
+
+#simply get the power spectrum of map1, but this time use a taper
+
+myPower = fftTools.powerFromLiteMap(map1,applySlepianTaper=True)
+
+\endcode
+
+\subsection ssec_power_attr power2D Attributes
+
+The power2D object has the same attributes as an fft2D objects except
+that the attribute containing the powers spectrum is a real 2-D
+array,called \c powerMap, e.g. \c myPower.powerMap
+
+\subsection ssec_power_methods power2D Methods
+
+Take a look at \link fftTools.power2D power2D\endlink for a list of
+methods. Here we highlight some of these:
+- \b Plotting \link fftTools.power2D.plot() myPower.plot() \endlink
+displays the 2-D power spectrum in myPower. It has a keyword \c
+zoomUptoL which lets one zoom into a specified L-range. 
+- \b Binning and plotting the binned power. Uses fftTools.power2D.binInAnnuli() and
+plotBinnedPower() Best shown through example:
+\code
+#bin the 2-D power spectrum using a binning file (See samples provided
+# in the params/ directory).
+
+lLower,lUpper,lBin,clBin,clBinSd,binWeight = myPower.binInAnnuli('BIN_250_LOG')
+
+#plot the binned power and overplot a theory curve from an ascii file.
+
+fftTools.plotBinnedPower(lBin,clBin,ylog=True,theoryFile='theoryCls.txt')
+\endcode
+
+\section sec_prewhiten Prewhitening a Map
+The class prewhitener enables one to prewhiten a CMB liteMap ala Das, Hajian and Spergel
+(2008) http://arxiv.org/abs/0809.1092v1 .
+
+\subsection  ssec_prewhitener_methods prewhitener Methods
+
+\arg \b Construct:
+Suppose we want to use a disc-difference filter with radius R = 1
+arcmin, add back a fraction 0.02 of the original map to stablize the
+low l power and smooth the map with a Gaussian window of FWHM=2
+arcmin, then we would construct an instance of the prewhitener class
+as:
+\code
+import prewhitener
+pw = prewhitener.prewhitener(1.,addBackFraction=0.02,smoothingFWHM=2.)
+\endcode
+
+\arg \b Apply: The next step is to apply the prewhitener to the
+liteMap
+\code
+pw.apply(map)
+\endcode
+\arg \b CorrectSpectrum: Then we take the power spectrum of the prewhitened
+map using fftTools . Ideally the next step would be to deonvolve any
+window function due to a taper or mask, if one was applied. Then
+having the power spectra lBin,clBin, one would like to take the effect
+of the prewhitener out by dividing the spectrum by the l-space
+representation of the prewhitening operation. This is achieved by,
+\code
+clBinCorrected = pw.correctSpectrum(lBin,clBin)
+\endcode  
+
+\section sec_healpix_to_flat HEALPix to Flat-sky Interpolator
+This example shows how to fill in a template liteMap with data from a
+HEALPix map. Suppose the HEALPix map is contained in the file
+hpm.fits and a template liteMap is in template.fits. The following
+snippet shows how the projection is performed:
+\code
+import liteMap
+import healpy
+#read in HEALPix map
+hpm = healpy.read_map('hpm.fits')
+#read in the liteMap
+flatMap = liteMap.liteMapFromFits('template.fits')
+#load the data from hpm into flatMap using bilinear interpolation
+flatMap.loadDataFromHealpixMap(hpm, interpolate = True)
+#write out the flatMap
+
+flatMap.writeFits('interpolatedMap.fits')
+\endcode
+
+\section sec_gauss_random Gaussian Random Field Generation
+
+This example shows how to generate a Gaussian Random Field from 
+a given power spectrum and fill a liteMap with it. 
+BufferFactor =1 means the map will be periodic boundary function                                                       
+BufferFactor > 1 means the map will be genrated on  a patch bufferFactor times                                         
+larger in each dimension and then cut out so as to have non-periodic bcs.                                              
+
+\code
+#The spectrum has been read in as ell, Cell and themap is a liteMap
+
+themap.fillWithGaussianRandomField(ell,Cell,bufferFactor = 2)
+
+\endcode
+
+\section sec_mtm Multitaper Method Power Spectrum Estimation
+
+To take the power spectrum with MTM method with 5 tapers with
+resolution 3.0 and 4 iterations, follow the two steps below:
+\code
+import mtm
+#Initiate an mtm object with the maps and masks (optional)
+m = mtm.mtm(map0,3.0,5,4,map2=map1,mask=mask0) #the order is map0,nres,ntap,niter,map2,mask
+#take the 2-D power 
+p2d = m.generatePower()
+#do the usual stuff of binning and plotting ...
+\endcode
+
+\section sec_pcg The PCG solver
+
+Under Construction
+
+\section sec_appendix Appendix 
+
+\section sec_relnotes Release Notes 
+
+\par April 13, 2010, Version -0.1.3
+
+\arg Added function \c liteMap.getCoordinateArrays to return two arrays containing the "sky" coordinates for all pixels in map m.
+
+\arg Added function \c liteMap.binDataAroundPoint to radially bin data in map m around (x0, y0) given bins (arcseconds) 
+
+\arg In the bin/ directory added executables printMapInfo and submap, for easy command line access to map.info() and selectSubMap functions
+
+\arg Added \c liteMap.getEmptyMapWithDifferentDims\c(\c m,\c Ny,\c Nx\c) function. This creates an empty map on the same patch of the sky as m but with different dimensions \c Ny ,\c Nx 
+
+\arg Added trimAtL option (see Dec 2 release notes) to fft2D objects.
+
+\arg Added nearest integer binning and contiguous bins through new keywords in \c binInAnnuli routine. NOTE THAT WITH THIS VERSION NEAREST INTEGER BINNING IS TURNED ON BY DEFAULT.
+
+\arg Added Gaussian Random Field generation, see \ref sec_gauss_random
+
+\arg Added liteMap.resampleFromHiResMap to downsample a high resolution map into a low resolution map
+
+\arg Added createGaussianApodization function to liteMap class to generate a Gaussian apodization window that rolls off to zero as a Gaussian at the edges with a width specified by the \c pad keyword.
+
+\par December 2, 2009, Version -0.1.1b
+
+\arg Added capability to trim the a power2D object at a given \f$\ell\f$. e.g \c p2dSmall = \c p2d.trimAtL\c(\c 3000.\c) will
+produce p2dSmall whose powerMap[:,:]  now runs over [lx,ly]= [-3000:3000,-3000:3000]
+
+\arg Added writeFits functions to fft2D and power2D classes. The fits files have correct WCS
+and can be used to look up [lx,ly] using ds9.  This effort was initiated by J.B. Juin and WCS 
+capabilites were added by SD. 
+
+\arg liteMap now has an \c upgradePixelPitch function which enables upgrading the pixelation of a map using
+Fourier Interpolation; the 
+resulting finer pixel map is useful for finding centroids of point sources etc. 
+
+\arg added a weightMap keyword to \c binInAnnuli so that anisotropic weighting can be performed while binning
+a 2D spectrum. 
+
+\arg added a keyword 'safe' to selectSubMap in liteMap so that if the queried subMap area steps over the parent map 
+limits, the map defined by the intersecting area is returned. 
+
+\arg added functions to convert CMB temperature to Compton Y in liteMap \c convertToMicroKFromComptonY and vice versa
+
+\par June 15, 2009, Version -0.1.0
+
+\arg In the bin/ directory added script for adding white noise to
+maps.
+
+\arg Added a flipper based catalog to source mask script:
+catalogToMask (based on cat2Mask from Amir Hajian)
+
+\arg Added  keywords drawCircles,drawVerticalLine, and powerOfL to p2d.plot(), to draw
+annuli and vertical lines on 2-D spectra, and to multiply the 2-D
+spectra with some power of L before plotting.
+
+\arg Added script interpolateFromHealpix in bin/ to interpolate
+healpix maps onto flat sky maps. See params/interpolateFromHealpix.dict
+
+\arg Added Adaptive Multitaper power spectra method (see documentation
+subsection above).
+
+\par May 6, 2009, Version - 0.0.9
+
+\arg Added fftTools.readBinningFile . One
+related thing is that if the abosolute path of the  binning file is
+not specified, then flipper  looks for the binning file first in the
+flipper/params directory and then in the working directory.
+
+\arg Added fftTools.binTheoryPower : Bins any theory power spectrum
+with the specified binning file.
+
+\arg Added power2D.testIsotropyInAnnuli in fftTools as a method on a power2D
+object. Calculates (in essence) \f$\int d\theta P_b(\theta) (cos^2(2\theta)
+- 1/2)\f$ to test the isotropy in each bin. 
+
+\arg Added new keywords colBarOrient and colBarShrink to the liteMap
+plot() function to tame colorbar orientation and height on oblong maps.
+
+
+\par April 25, 2009; Version - 0.0.8
+
+\arg Added function liteMap.addLiteMapsWithSpectralWeighting to add to
+liteMaps with Fourier plane weighting. 
+
+\arg Several Changes to deal with maps whose RA crosses zero -  affects readFromFits,
+selectSubMap, plot. 
+
+\arg New and improved map plotting using astLib.astPlots.ImagePlot (to
+deal with maps crossing zero RA). 
+
+
+\par April 13, 2009; Version - 0.0.7b
+
+\arg Importing all flipper modules at once through \code from flipper import * \endcode
+
+\arg Jy/Sr to uK and vice-versa conversion.
+
+
+\par April 9, 2009; Version - 0.0.7a
+
+\arg Added function map.info(showHeader=False)
+
+ to pretty print all information attached to a map including
+(optionally) the header.
+
+
+\arg Lightning Fast Taper Generation
+
+We have f2py'ed a fortran routine dpss.f  (1993 original code
+available at http://lib.stat.cmu.edu/jcgs/bell-p-w) into a python
+module dpss.so which is used for generating tapers. Previously we used
+scipy.linalg to generate tapers by solving eigenvalue equations. This
+was exceedingly slow for large maps (upto an hour for the new half
+-arcmin pixelated maps). But with dpss.so  this takes 2 mins. 
+
+It should run out of the box on ishmael. But on a different machine
+you may need to create the .so file again by running f2py. The code
+will advice you how to do this.
+ 
+\arg selectSubMap
+
+You can now select a sub liteMap from a large liteMap by specifying the bounds.
+
+
+\par March 31, 2009; Version - 0.0.6c
+\arg Added class PreWhitener
+\arg Added Healpix to Flat-sky interpolator based on healpy
+
+*/
