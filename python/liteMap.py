@@ -213,7 +213,7 @@ class liteMap:
         
         if x0 >	180.0:
             x0 -= 360.0
-	    if x1 >	180.0:
+        if x1 >	180.0:
             x1 -= 360.0
 
         if self.x1 > 180.0:
