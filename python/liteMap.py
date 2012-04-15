@@ -210,6 +210,17 @@ class liteMap:
 
         If safe, then only clip part of submap falling in map
         """
+        
+        if x0 >	180.0:
+            x0 -= 360.0
+	    if x1 >	180.0:
+            x1 -= 360.0
+
+        if self.x1 > 180.0:
+            self.x1 -= 360.0
+        if self.x0 > 180.0:
+            self.x0 -= 360.0
+        
         if safe:
             epsilon = self.pixScaleY
             cosdec = numpy.cos((y0+y1)/2.*numpy.pi/180.)
