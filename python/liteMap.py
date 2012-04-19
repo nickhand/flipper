@@ -822,8 +822,16 @@ def getEmptyMapWithDifferentDims(m,Ny,Nx):
     m = m.copy()
     m.wcs.header.update('NAXIS1',Nx)
     m.wcs.header.update('NAXIS2',Ny)
-    m.wcs.header.update('CDELT1',  m.wcs.header['CDELT1']*(m.Nx/(Nx*1.0)))
-    m.wcs.header.update('CDELT2',  m.wcs.header['CDELT2']*(m.Ny/(Ny*1.0)))
+    if 'CDELT1' in m.wcs.header.keys():
+        m.wcs.header.update('CDELT1',  m.wcs.header['CDELT1']*(m.Nx/(Nx*1.0)))
+    elif 'CD1_1' in m.wcs.header.keys():
+        m.wcs.header.update('CD1_1',  m.wcs.header['CD1_1']*(m.Nx/(Nx*1.0)))
+    
+    if 'CDELT2' in m.wcs.header.keys():
+        m.wcs.header.update('CDELT2',  m.wcs.header['CDELT2']*(m.Ny/(Ny*1.0)))
+    elif 'CD2_2' in m.wcs.header.keys():
+        m.wcs.header.update('CD2_2',  m.wcs.header['CD2_2']*(m.Nx/(Nx*1.0)))
+    
     m.wcs.updateFromHeader()
     p_x, p_y = m.skyToPix(m.x0,m.y0)
     m.wcs.header.update('CRPIX1', m.wcs.header['CRPIX1'] - p_x)
