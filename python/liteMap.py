@@ -838,8 +838,9 @@ def getEmptyMapWithDifferentDims(m,Ny,Nx):
         dy = m.header['CD2_2']
     
     m.wcs.updateFromHeader()
-    m.wcs.header.update('CRPIX1', Nx/2)
-    m.wcs.header.update('CRPIX2', Ny/2)
+    p_x, p_y = m.skyToPix(m.x0,m.y0)
+    m.wcs.header.update('CRPIX1', m.wcs.header['CRPIX1'] - p_x)
+    m.wcs.header.update('CRPIX2', m.wcs.header['CRPIX2'] - p_y)
     m.wcs.updateFromHeader()
     mNew = liteMapFromDataAndWCS(data, m.wcs)
 
