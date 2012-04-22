@@ -795,23 +795,14 @@ def upgradePixelPitch( m, N = 1 ):
     m = m.copy() # don't overwrite original 
     m.wcs.header.update('NAXIS1',  2**N*m.wcs.header['NAXIS1'] )
     m.wcs.header.update('NAXIS2',  2**N*m.wcs.header['NAXIS2'] )
-    
-    if 'CDELT1' in m.wcs.header.keys():
-        m.wcs.header.update('CDELT1',  m.wcs.header['CDELT1']/2.**N)
-    elif 'CD1_1' in m.wcs.header.keys():
-        m.wcs.header.update('CD1_1',  m.wcs.header['CD1_1']/2.**N)
-        
-    if 'CDELT2' in m.wcs.header.keys():
-        m.wcs.header.update('CDELT2',  m.wcs.header['CDELT2']/2.**N)
-    elif 'CD2_2' in m.wcs.header.keys():
-        m.wcs.header.update('CD2_2',  m.wcs.header['CD2_2']/2.**N)
-        
+    m.wcs.header.update('CDELT1',  m.wcs.header['CDELT1']/2.**N)
+    m.wcs.header.update('CDELT2',  m.wcs.header['CDELT2']/2.**N)
     m.wcs.updateFromHeader()
     
-    p_x, p_y = m.pixToSky(*m.wcs.getCentreWCSCoords())
+    p_x, p_y = m.skyToPix(x0_new, y0_new)
  
-    m.wcs.header.update('CRPIX1', p_x)
-    m.wcs.header.update('CRPIX2', p_y)
+    m.wcs.header.update('CRPIX1', m.wcs.header['CRPIX1'] - p_x)
+    m.wcs.header.update('CRPIX2', m.wcs.header['CRPIX2'] - p_y)
     m.wcs.updateFromHeader()
 
     mNew = liteMapFromDataAndWCS(numpy.real(newData), m.wcs)
