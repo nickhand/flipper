@@ -806,7 +806,7 @@ def upgradePixelPitch( m, N = 1 ):
     m.wcs.updateFromHeader()
 
     mNew = liteMapFromDataAndWCS(numpy.real(newData), m.wcs)
-    mNew.data[:] = newData[:]
+    mNew.data[:] = numpy.real(newData[:])
     return mNew
 
 def getEmptyMapWithDifferentDims(m,Ny,Nx):
