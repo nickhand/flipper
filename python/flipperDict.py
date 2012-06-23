@@ -1,5 +1,6 @@
 import os
 import string
+import re
 
 def ask_for( key ):
     s = raw_input( "flipperDict: enter value for '%s': " % key )
@@ -50,6 +51,16 @@ class flipperDict( dict ):
                 if line[i]!=' ':
                     line = line[i:]
                     break
+            # check for references to any environmental variables
+            if '$' in line:
+                matches = re.findall("\$[\w]+", line)
+                for match in matches:
+                    try: 
+                        env_var = os.environ[match.split('$')[-1]]
+                    except:
+                        raise ValueError('Environment variable %s does not exist' %match)
+                        
+                    line = line.replace(match, env_var)
             exec(line)
             s = line.split('=')
             if len(s) != 2:
