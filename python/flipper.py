@@ -9,6 +9,7 @@ import numpy
 #Pylab
 import pylab
 pylab.load = numpy.loadtxt
+
 #Other dependencies
 import healpy
 
