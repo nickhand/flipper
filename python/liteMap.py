@@ -235,7 +235,8 @@ class liteMap:
 
         ix0,iy0 = self.skyToPix(x0,y0)
         ix1,iy1 = self.skyToPix(x1,y1)
-        assert((ix0 >0) & (ix1>0))
+        print x0, y0, x1, y1
+		assert((ix0 >0) & (ix1>0))
         assert((iy0 >0) & (iy1>0))
         i0 = numpy.int(ix0+0.5)
         j0 = numpy.int(iy0+0.5)
