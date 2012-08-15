@@ -211,9 +211,9 @@ class liteMap:
         If safe, then only clip part of submap falling in map
         """
         
-        if x0 >	180.0:
+        if x0 > 180.0:
             x0 -= 360.0
-        if x1 >	180.0:
+        if x1 > 180.0:
             x1 -= 360.0
 
         if self.x1 > 180.0:
@@ -236,7 +236,7 @@ class liteMap:
         ix0,iy0 = self.skyToPix(x0,y0)
         ix1,iy1 = self.skyToPix(x1,y1)
         print x0, y0, x1, y1
-		assert((ix0 >0) & (ix1>0))
+        assert((ix0 >0) & (ix1>0))
         assert((iy0 >0) & (iy1>0))
         i0 = numpy.int(ix0+0.5)
         j0 = numpy.int(iy0+0.5)
