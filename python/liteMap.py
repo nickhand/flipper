@@ -17,7 +17,8 @@ import trace
 import healpy
 import utils
 import time
-from scipy.interpolate import splrep,splev
+from scipy.interpolate import splrep,splev, interp1d
+
 class gradMap:
     """
     @brief  Class describing gradient of a liteMap
@@ -74,7 +75,80 @@ class liteMap:
         if showHeader:
             print "Map header \n %s"%(self.header)
 
+            
+    def mask(self, ra, dec, hw = 7, mask_lo=15, mask_hi=25):
+        """
+        @brief mask the given (ra, dec) with an average value
+        @param ra: the right ascension of the mask location
+        @param dec: the declination of the mask location
+        @keyword hw: the halfwidth of the mask in pixels
+        @keyword mask_lo: the lower pixel distance of ring to compute avg value
+        @keyword mask_hi: the upper pixel distance of ring to compute avg value
 
+        @return the masked liteMap object
+        """
+        # compute a masked copy
+        masked = self.copy()
+        
+        # get the pixel arrays
+        x = range(masked.Nx)
+        y = range(masked.Ny)
+
+        # make the grid of pixel indices
+        xx, yy = numpy.meshgrid(x, y)
+        
+        # the center pixels 
+        x0, y0 = masked.skyToPix(ra, dec)
+        
+        # the pixel distances from center
+        dist = numpy.sqrt((xx - x0)**2 + (yy - y0)**2)
+
+        # compute the average value to fill in
+        a,b = numpy.where((dist > mask_lo) * (dist < mask_hi))
+        avg = numpy.mean(masked.data[a,b])
+
+        # mask the data
+        i, j = numpy.where(dist < hw)
+        masked.data[i,j] = avg
+
+        return masked
+        
+    def fillFourierTransform(self, ell, cl, elTrim=None):
+        """
+        @brief fill the fourier transform of the map with the 1D values specified by (ell, cl)
+        @param ell: 1D array of ell values to fill in (numpy.array)
+        @param cl: 1D array of cl values to fill in (numpy.array)
+        @keyword elTrim: the only fill in values ell < elTrim
+        
+        @return a fftTools.fft object with filled in kMap attribute
+        """
+        
+        # set the max ell to infty if not specified
+        if elTrim == None:
+            elTrim = numpy.inf
+            
+        # the fourier transform 
+        ft = fftTools.fftFromLiteMap(self)
+        ft.kMap[:] = 0.
+        
+        # make an interpolation function
+        f = interp1d(ell, cl)
+        
+        # get indices of pixels that have values of ell less than elMax
+        idx = numpy.where((ft.lx < elTrim) & (ft.lx > -elTrim))[0]
+        idy = numpy.where((ft.ly < elTrim) & (ft.ly > -elTrim))[0]
+
+        # make a meshgrid of indices 
+        ix,iy = numpy.meshgrid(idx,idy)
+
+        # flatten the indices
+        iy_flat, ix_flat = iy.flatten(), ix.flatten()
+        
+        # fill in the FT with the interpolated values
+        ft.kMap[iy_flat, ix_flat] = f(ft.modLMap[iy_flat, ix_flat])
+
+        return ft
+        
     def fillWithGaussianRandomField(self,ell,Cell,bufferFactor = 1):
         """
         Generates a GRF from an input power spectrum specified as ell, Cell 
