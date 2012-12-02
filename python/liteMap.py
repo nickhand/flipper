@@ -113,7 +113,7 @@ class liteMap:
 
         return masked
         
-    def fillFourierTransform(self, ell, cl, elTrim=None):
+    def fillFourierTransform(self, ell, cl, elTrim=30000):
         """
         @brief fill the fourier transform of the map with the 1D values specified by (ell, cl)
         @param ell: 1D array of ell values to fill in (numpy.array)
@@ -130,9 +130,10 @@ class liteMap:
         # the fourier transform 
         ft = fftTools.fftFromLiteMap(self)
         ft.kMap[:] = 0.
-        
+
+    
         # make an interpolation function
-        f = interp1d(ell, cl)
+        s = splrep(ell, cl,k=3)
         
         # get indices of pixels that have values of ell less than elMax
         idx = numpy.where((ft.lx < elTrim) & (ft.lx > -elTrim))[0]
@@ -145,8 +146,8 @@ class liteMap:
         iy_flat, ix_flat = iy.flatten(), ix.flatten()
         
         # fill in the FT with the interpolated values
-        ft.kMap[iy_flat, ix_flat] = f(ft.modLMap[iy_flat, ix_flat])
-
+        ft.kMap[iy_flat, ix_flat] = splev(ft.modLMap[iy_flat, ix_flat], s)
+        
         return ft
         
     def fillWithGaussianRandomField(self,ell,Cell,bufferFactor = 1):
