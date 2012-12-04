@@ -131,9 +131,13 @@ class liteMap:
         ft = fftTools.fftFromLiteMap(self)
         ft.kMap[:] = 0.
 
-    
-        # make an interpolation function
-        s = splrep(ell, cl,k=3)
+        # make an interpolation function for real and imaginary parts
+        sreal = splrep(ell, cl.real)
+        
+        doImag = False
+        if cl.dtype == complex and len(numpy.nonzero(cl.imag)[0]) > 0:
+            doImag = True
+            simag = splrep(ell, cl.imag)
         
         # get indices of pixels that have values of ell less than elMax
         idx = numpy.where((ft.lx < elTrim) & (ft.lx > -elTrim))[0]
@@ -146,7 +150,10 @@ class liteMap:
         iy_flat, ix_flat = iy.flatten(), ix.flatten()
         
         # fill in the FT with the interpolated values
-        ft.kMap[iy_flat, ix_flat] = splev(ft.modLMap[iy_flat, ix_flat], s)
+        if not doImag:
+            ft.kMap[iy_flat, ix_flat] = splev(ft.modLMap[iy_flat, ix_flat], sreal)
+        else:
+            ft.kMap[iy_flat, ix_flat] = splev(ft.modLMap[iy_flat, ix_flat], sreal) + 1j*splev(ft.modLMap[iy_flat, ix_flat], simag)
         
         return ft
         
