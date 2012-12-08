@@ -485,7 +485,7 @@ class liteMap:
         apod.data[pad:apod.Ny-pad,pad:apod.Nx-pad] = 1.0
         apod.data = scipy.ndimage.gaussian_filter(apod.data,kern,mode="constant")
         return apod
-
+        
     def writeFits(self,filename,overWrite=False):
         """ @brief Write  a liteMap as a Fits file"""
         pyfits.writeto(filename,self.data,self.header,clobber=overWrite)
