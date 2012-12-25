@@ -16,7 +16,7 @@ from scipy.interpolate import splrep, splev
 import scipy
 import pickle
 import sys, os
-from utils import *
+from flipperUtils import *
 import trace
 import pyfits
 taperDir = os.environ["FLIPPER_DIR"] + os.path.sep + "tapers"
