@@ -3,7 +3,7 @@ import sys
 import os
 import pylab
 import fftTools
-import utils
+import flipperUtils as utils
 import trace
 
 class mtm:

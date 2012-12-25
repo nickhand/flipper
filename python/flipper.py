@@ -15,7 +15,7 @@ import healpy
 
 #flipper specific
 
-import utils
+import flipperUtils as utils
 import flipperDict
 import fftTools
 import liteMap

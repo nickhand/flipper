@@ -5,7 +5,7 @@
 """
 
 import numpy
-import utils
+import flipperUtils as utils
 try:
     import pylab
 except:

@@ -10,12 +10,12 @@ import pylab
 import copy
 import pyfits
 import astLib
-from utils import *
+from flipperUtils import *
 from fftTools import fftFromLiteMap
 import fftTools
 import trace
 import healpy
-import utils
+import flipperUtils as utils
 import time
 from scipy.interpolate import splrep,splev, interp1d
 

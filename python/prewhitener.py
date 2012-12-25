@@ -1,7 +1,7 @@
 import liteMap
 import numpy
 import scipy.special as sp
-import utils
+import flipperUtils as utils
 import pylab
 import trace
 
