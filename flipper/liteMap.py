@@ -1009,3 +1009,61 @@ def binDataAroundPoint( m, x0, y0, bins, median = False ):
 
     return numpy.array(cen), numpy.array(avg), numpy.array(std)
 
+def getEmptyMapAtLocation(templateFile, x0, y0):
+    """
+    @brief generate a map with same dimensions as the input map but centered on (x0, y0)
+    """
+    
+    templateHDUList = pyfits.open(templateFile)
+    wcs = astLib.astWCS.WCS(templateFile)
+    templateHeader = wcs.header
+
+    corner0 = numpy.array(wcs.pix2wcs(0,0))
+    center0 = numpy.array(wcs.getCentreWCSCoords())
+    lat0    = numpy.arccos(numpy.sqrt(wcs.header['PV2_1']))*180/numpy.pi
+    if center0[1] < 0:
+        lat0 *= -1.
+
+    latOffset = lat0 - center0[1]
+    cornerOffset = corner0 - center0
+    cornerOffset[0] *= numpy.cos(numpy.pi * lat0 / 180. )
+    cornerOffset0 = cornerOffset.copy()
+
+    center = numpy.array([x0, y0])
+    lat    = center[1] + latOffset
+    cornerOffset[0] /= numpy.cos(numpy.pi * lat / 180. )
+    corner = center + cornerOffset
+    wcs.header['PV2_1'] = numpy.cos(lat*numpy.pi/180)**2
+    wcs.header['cdelt1'] *= numpy.cos(lat0*numpy.pi/180)/numpy.cos(lat*numpy.pi/180)
+    wcs.header['cdelt2'] = -wcs.header['cdelt1']
+    wcs.updateFromHeader()
+    cornerPix = wcs.wcs2pix(*corner.tolist())
+    #print corner,cornerPix
+    
+    wcs.header['crpix1'] -= cornerPix[0]
+    wcs.header['crpix2'] -= cornerPix[1]
+    wcs.updateFromHeader()
+    cornerPix = wcs.wcs2pix(*corner.tolist())
+    #print corner, cornerPix
+    
+    wcs.header['crpix1'] -= cornerPix[0]
+    wcs.header['crpix2'] -= cornerPix[1]
+    wcs.updateFromHeader()
+
+    corner = numpy.array(wcs.pix2wcs(0,0))
+    center = numpy.array(wcs.getCentreWCSCoords())
+    lat    = numpy.arccos(numpy.sqrt(wcs.header['PV2_1']))*180/numpy.pi
+    if center[1] < 0:
+        lat *= -1.
+
+    _latOffset = lat - center[1]
+    _cornerOffset = corner - center
+    _cornerOffset[0] *= numpy.cos(numpy.pi * lat / 180. )
+
+    #print lat0, corner0, center0, cornerOffset0, latOffset
+    #print lat,  corner,  center, _cornerOffset, _latOffset
+
+
+    lm = liteMapFromDataAndWCS(templateHDUList[0].data*0., wcs)
+
+    return lm
