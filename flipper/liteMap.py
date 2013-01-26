@@ -191,9 +191,9 @@ class liteMap:
         id = numpy.where(ll>ell.max())
         kk[id] = 0.
         #add a cosine ^2 falloff at the very end
-        #id2 = numpy.where( (ll> (ell.max()-500)) & (ll<ell.max()))
-        #lEnd = ll[id2]
-        #kk[id2] *= numpy.cos((lEnd-lEnd.min())/(lEnd.max() -lEnd.min())*numpy.pi/2)
+        id2 = numpy.where( (ll> (ell.max()-500)) & (ll<ell.max()))
+        lEnd = ll[id2]
+        kk[id2] *= numpy.cos((lEnd-lEnd.min())/(lEnd.max() -lEnd.min())*numpy.pi/2)
         
         #pylab.loglog(ll,kk)
 
