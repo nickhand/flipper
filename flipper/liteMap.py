@@ -2,6 +2,7 @@
 @file liteMap.py
 @brief Tools for real space maps
 @author Sudeep Das and Toby Marriage
+updates by Nick Hand
 """
 
 import os, sys, copy
