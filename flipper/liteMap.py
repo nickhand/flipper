@@ -5,7 +5,7 @@
 updates by Nick Hand
 """
 
-import os, sys, copy
+import copy, os, sys
 import numpy, scipy
 import pylab
 import copy
