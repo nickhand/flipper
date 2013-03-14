@@ -1,6 +1,7 @@
 import os
 import string
 import re
+import copy
 
 def ask_for( key ):
     s = raw_input( "flipperDict: enter value for '%s': " % key )
@@ -30,6 +31,10 @@ class flipperDict( dict ):
             else:
                 return None
         return dict.__getitem__( self, key )
+        
+    def copy(self):
+        
+        return copy.deepcopy(self)
 
     def read_from_file( self, filename ):
         f = open( filename )
