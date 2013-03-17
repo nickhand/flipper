@@ -1009,6 +1009,92 @@ def binDataAroundPoint( m, x0, y0, bins, median = False ):
         cen.append(numpy.mean(bin))
 
     return numpy.array(cen), numpy.array(avg), numpy.array(std)
+    
+def makeEmptyCEATemplate(raSizeDeg, decSizeDeg,meanRa = 180., meanDec = 0.,\
+                      pixScaleXarcmin = 0.5, pixScaleYarcmin=0.5):
+    assert(meanDec == 0.,'mean dec other than zero not implemented yet')
+
+
+    cdelt1 = -pixScaleXarcmin/60.
+    cdelt2 = pixScaleYarcmin/60.
+    naxis1 = numpy.int(raSizeDeg/pixScaleXarcmin*60.+0.5)
+    naxis2 = numpy.int(decSizeDeg/pixScaleYarcmin*60.+0.5)
+    refPix1 = naxis1/2.
+    refPix2 = naxis2/2.
+    pv2_1 = 1.0
+    cardList = pyfits.CardList()
+    cardList.append(pyfits.Card('NAXIS', 2))
+    cardList.append(pyfits.Card('NAXIS1', naxis1))
+    cardList.append(pyfits.Card('NAXIS2', naxis2))
+    cardList.append(pyfits.Card('CTYPE1', 'RA---CEA'))
+    cardList.append(pyfits.Card('CTYPE2', 'DEC--CEA'))
+    cardList.append(pyfits.Card('CRVAL1', meanRa))
+    cardList.append(pyfits.Card('CRVAL2', meanDec))
+    cardList.append(pyfits.Card('CRPIX1', refPix1+1))
+    cardList.append(pyfits.Card('CRPIX2', refPix2+1))
+    cardList.append(pyfits.Card('CDELT1', cdelt1))
+    cardList.append(pyfits.Card('CDELT2', cdelt2))
+    cardList.append(pyfits.Card('CUNIT1', 'DEG'))
+    cardList.append(pyfits.Card('CUNIT2', 'DEG'))
+    hh = pyfits.Header(cards=cardList)
+    wcs = astLib.astWCS.WCS(hh, mode='pyfits')
+    data = numpy.zeros([naxis2,naxis1])
+    ltMap = liteMapFromDataAndWCS(data,wcs)
+
+    return ltMap
+
+def makeEmptyCEATemplateAdvanced(ra0, dec0, \
+                                 ra1, dec1,\
+                                 pixScaleXarcmin = 0.5, \
+                                 pixScaleYarcmin= 0.5):
+
+    """
+    ALL RA DEC IN DEGREES
+    """
+    assert(ra0<ra1)
+    assert(dec0<dec1)
+    refDec = (dec0+dec1)/2.
+    cosRefDec =  numpy.cos(refDec/180.*numpy.pi)
+    raSizeDeg  = (ra1 - ra0)*cosRefDec
+    decSizeDeg = (dec1-dec0)
+
+    cdelt1 = -pixScaleXarcmin/(60.*cosRefDec)
+    cdelt2 = pixScaleYarcmin/(60.*cosRefDec)
+    naxis1 = numpy.int(raSizeDeg/pixScaleXarcmin*60.+0.5)
+    naxis2 = numpy.int(decSizeDeg/pixScaleYarcmin*60.+0.5)
+    refPix1 = numpy.int(-ra1/cdelt1+0.5)
+    refPix2 = numpy.int(numpy.sin(-dec0*numpy.pi/180.)\
+                        *180./numpy.pi/cdelt2/cosRefDec**2+0.5)
+    pv2_1 = cosRefDec**2
+    cardList = pyfits.CardList()
+    cardList.append(pyfits.Card('NAXIS', 2))
+    cardList.append(pyfits.Card('NAXIS1', naxis1))
+    cardList.append(pyfits.Card('NAXIS2', naxis2))
+    cardList.append(pyfits.Card('EXTEND', True))
+    cardList.append(pyfits.Card('CTYPE1', 'RA---CEA'))
+    cardList.append(pyfits.Card('CTYPE2', 'DEC--CEA'))
+    cardList.append(pyfits.Card('CRVAL1', 0))
+    cardList.append(pyfits.Card('CRVAL2', 0))
+    cardList.append(pyfits.Card('CRPIX1', refPix1+1))
+    cardList.append(pyfits.Card('CRPIX2', refPix2+1))
+    cardList.append(pyfits.Card('CDELT1', cdelt1))
+    cardList.append(pyfits.Card('CDELT2', cdelt2))
+    cardList.append(pyfits.Card('CUNIT1', 'DEG'))
+    cardList.append(pyfits.Card('CUNIT2', 'DEG'))
+    cardList.append(pyfits.Card('PV2_1', pv2_1))
+    cardList.append(pyfits.Card('EQUINOX',2000))
+    cardList.append(pyfits.Card('PC1_1',1))
+    cardList.append(pyfits.Card('PC1_2',0))
+    cardList.append(pyfits.Card('PC2_1',0))
+    cardList.append(pyfits.Card('PC2_2',1))
+
+    hh = pyfits.Header(cards=cardList)
+    wcs = astLib.astWCS.WCS(hh, mode='pyfits')
+    data = numpy.zeros([naxis2,naxis1])
+    ltMap = liteMapFromDataAndWCS(data,wcs)
+
+    return ltMap
+
 
 def getEmptyMapAtLocation(templateFile, x0, y0):
     """
