@@ -952,10 +952,10 @@ def resampleFromHiResMap(highResMap, lowResTemp):
     @return low res map 
     """
     
-    assert(highResMap.x0 == lowResTemp.x0)
-    assert(highResMap.y0 == lowResTemp.y0)
-    assert(highResMap.Nx> lowResTemp.Nx)
-    assert(highResMap.Ny> lowResTemp.Ny)
+    #assert(highResMap.x0 == lowResTemp.x0)
+    #assert(highResMap.y0 == lowResTemp.y0)
+    #assert(highResMap.Nx> lowResTemp.Nx)
+    #assert(highResMap.Ny> lowResTemp.Ny)
     
     m = lowResTemp.copy()
     w = lowResTemp.copy()
@@ -969,8 +969,10 @@ def resampleFromHiResMap(highResMap, lowResTemp):
             m.data[iy,ix] += highResMap.data[i,j]
             w.data[iy,ix] += 1.0
     t1 = time.time()
-    assert(numpy.all(w.data[:] >0.))
-    m.data[:] /=w.data[:]
+    #assert(numpy.all(w.data[:] >0.))
+    
+    inds = numpy.where(w.data > 0.)
+    m.data[inds] /= w.data[inds]
     return m 
 
 def getRadiusAboutPoint( m, x0, y0, coordinateArrays = None):
