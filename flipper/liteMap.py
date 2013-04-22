@@ -966,8 +966,11 @@ def resampleFromHiResMap(highResMap, lowResTemp):
         for j in xrange(highResMap.Nx):
             ra, dec = highResMap.pixToSky(j,i)
             ix,iy = m.skyToPix(ra,dec)
-            m.data[iy,ix] += highResMap.data[i,j]
-            w.data[iy,ix] += 1.0
+            try:
+                m.data[iy,ix] += highResMap.data[i,j]
+                w.data[iy,ix] += 1.0
+            except:
+                pass
     t1 = time.time()
     #assert(numpy.all(w.data[:] >0.))
     
