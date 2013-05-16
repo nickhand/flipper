@@ -1,3 +1,11 @@
+"""
+ flipperDict.py
+ 
+ author: Nick Hand
+ contact: nhand@berkeley.edu
+ creation date: 05/01/2013
+"""
+
 import os
 import string
 import re
