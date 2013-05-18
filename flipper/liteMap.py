@@ -509,12 +509,13 @@ class liteMap:
          """
         return self.wcs.wcs2pix(lon,lat)
 
-    def loadDataFromHealpixMap(self, hpm, interpolate = False, hpCoords = "J2000"):
+    def loadDataFromHealpixMap(self, hpm, interpolate = False, hpCoords = "J2000", pole=90.):
         """
         @brief copy data from a Healpix map (from healpy), return a lite map
         @param hpm healpy map
         @param interpolate use interpolation when copying 
         @param hpCoords coordinates of hpm (e.g., "J2000"(RA, Dec) or "GALACTIC")
+        @param pole the angle of the north pole 
 
         Assumes that liteMap is in J2000 RA Dec. The Healpix map must contain the liteMap.
         """
@@ -541,7 +542,7 @@ class liteMap:
         trace.issue("flipper.liteMap", 3, "phiOut (min, max): (%f, %f)  " %  ( phOut.min(), phOut.max() ))
         trace.issue("flipper.liteMap", 3, "thetaOut (min, max): (%f, %f)  " %  ( thOut.min(), thOut.max() ))
         phOut *= numpy.pi/180
-        thOut = 135. - thOut #polar angle is 0 at north pole
+        thOut = pole - thOut # polar angle is 0 at north pole by default
         thOut *= numpy.pi/180
         trace.issue("flipper.liteMap", 3, "phiOut rad (min, max): (%f, %f)  " %  ( phOut.min(), phOut.max() ))
         trace.issue("flipper.liteMap", 3, "thetaOut rad (min, max): (%f, %f)  " %  ( thOut.min(), thOut.max() ))
