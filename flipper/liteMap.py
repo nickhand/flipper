@@ -542,7 +542,7 @@ class liteMap:
         trace.issue("flipper.liteMap", 3, "phiOut (min, max): (%f, %f)  " %  ( phOut.min(), phOut.max() ))
         trace.issue("flipper.liteMap", 3, "thetaOut (min, max): (%f, %f)  " %  ( thOut.min(), thOut.max() ))
         phOut *= numpy.pi/180
-        thOut = pole - thOut # polar angle is 0 at north pole by default
+        thOut = abs(pole - thOut) # polar angle is 0 at north pole by default
         thOut *= numpy.pi/180
         trace.issue("flipper.liteMap", 3, "phiOut rad (min, max): (%f, %f)  " %  ( phOut.min(), phOut.max() ))
         trace.issue("flipper.liteMap", 3, "thetaOut rad (min, max): (%f, %f)  " %  ( thOut.min(), thOut.max() ))
