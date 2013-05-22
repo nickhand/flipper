@@ -1,4 +1,0 @@
-templateMap = "skymap.fits"
-rmsArcmin  = 40.
-addToTemplate = True
-outputFits = "skymap0.fits"

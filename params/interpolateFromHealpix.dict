@@ -1,6 +1,0 @@
-healpixMap = 'healpix_cmb.fits'
-templateMap = 'template.fits'
-outDir = '.'
-outName = 'cmb.fits'
-freqGHz = 148.
-convertFromJyPerSrToMicroK = True

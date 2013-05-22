@@ -1,7 +1,0 @@
-map = "/scr/starbuck1/shared/sims/v1.1/145/template.fits"
-mask = "mask.fits"
-catalog = "/scr/ishmael2/users/amir/ACT/ptsrc/data/carlos.txt_0.5"
-output_catalog = "outcat.dat"
-noise_rms = 15 ## uK
-detection_threshold = 3.0 # in units of noise rms
-beam_fwhm = 1.4 # beam FWHM in arcmin
