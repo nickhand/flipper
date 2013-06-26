@@ -474,7 +474,7 @@ class liteMap:
         del filtData
         return filtMap
 
-    def createGaussianApodization(self,pad=10,kern=5):
+    def createGaussianApodization(self,pad=10,kern=5,extraYPad = 0):
         """
         @brief Creates a liteMap containing an apodization window
         @param pad the number of pixels that are first zeroed out at the edges
@@ -483,7 +483,7 @@ class liteMap:
         """
         apod = self.copy()
         apod.data[:] = 0.0
-        apod.data[pad:apod.Ny-pad,pad:apod.Nx-pad] = 1.0
+        apod.data[pad+extraYPad:apod.Ny-pad-extraYPad,pad:apod.Nx-pad] = 1.0
         apod.data = scipy.ndimage.gaussian_filter(apod.data,kern,mode="constant")
         return apod
         
