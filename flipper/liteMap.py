@@ -250,6 +250,7 @@ class liteMap:
             ly_shifted = numpy.fft.fftshift(twodPower.ly)
             twodPower_shifted = numpy.fft.fftshift(twodPower.powerMap)
             
+            print "making interpolation function..."
             f_interp = interp2d(lx_shifted, ly_shifted, twodPower_shifted)
             
             # ell = numpy.ravel(twodPower.modLMap)
@@ -261,10 +262,11 @@ class liteMap:
             # 
             # ll = numpy.ravel(modLMap)
             # kk = splev(ll,s)
-            
+            print "interpolating..."
             kk = f_interp(numpy.fft.fftshift(lx), numpy.fft.fftshift(ly))
             kk = numpy.fft.ifftshift(kk)
             
+            print "done interpolating..."
             # id = numpy.where(modLMap > ell.max())
             # kk[id] = 0.
             # add a cosine ^2 falloff at the very end
