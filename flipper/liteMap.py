@@ -18,7 +18,7 @@ import trace
 import healpy
 import flipperUtils as utils
 import time
-from scipy.interpolate import splrep,splev, interp1d
+from scipy.interpolate import splrep,splev, interp1d, interp2d
 
 class gradMap:
     """
@@ -244,20 +244,29 @@ class liteMap:
         iy, ix = numpy.mgrid[0:Ny,0:Nx]
         modLMap[iy,ix] = numpy.sqrt(ly[iy]**2+lx[ix]**2)
 
-        if bufferFactor > 1:
-            ell = numpy.ravel(twodPower.modLMap)
-            Cell = numpy.ravel(twodPower.powerMap)
-            print ell
-            print Cell
-            s = splrep(ell,Cell,k=3)
-        
+        if bufferFactor > 1 or twodPower.Nx != Nx or twodPower.Ny != Ny:
             
-            ll = numpy.ravel(modLMap)
-            kk = splev(ll,s)
+            lx_shifted = numpy.fft.fftshift(twodPower.lx)
+            ly_shifted = numpy.fft.fftshift(twodPower.ly)
+            twodPower_shifted = numpy.fft.fftshift(twodPower.powerMap)
             
+            f_interp = interp2d(lx_shifted, ly_shifted, twodPower_shifted)
             
-            id = numpy.where(ll>ell.max())
-            kk[id] = 0.
+            # ell = numpy.ravel(twodPower.modLMap)
+            # Cell = numpy.ravel(twodPower.powerMap)
+            # print ell
+            # print Cell
+            # s = splrep(ell,Cell,k=3)
+            #         
+            # 
+            # ll = numpy.ravel(modLMap)
+            # kk = splev(ll,s)
+            
+            kk = f_interp(numpy.fft.fftshift(lx), numpy.fft.fftshift(ly))
+            kk = numpy.fft.ifftshift(kk)
+            
+            # id = numpy.where(modLMap > ell.max())
+            # kk[id] = 0.
             # add a cosine ^2 falloff at the very end
             # id2 = numpy.where( (ll> (ell.max()-500)) & (ll<ell.max()))
             # lEnd = ll[id2]
@@ -266,7 +275,8 @@ class liteMap:
             # pylab.loglog(ll,kk)
 
             area = Nx*Ny*self.pixScaleX*self.pixScaleY
-            p = numpy.reshape(kk,[Ny,Nx]) /area * (Nx*Ny)**2
+            #p = numpy.reshape(kk,[Ny,Nx]) /area * (Nx*Ny)**2
+            p = kk / area * (Nx*Ny)**2
         else:
             area = Nx*Ny*self.pixScaleX*self.pixScaleY
             p = twodPower.powerMap/area*(Nx*Ny)**2
