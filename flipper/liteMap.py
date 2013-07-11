@@ -244,6 +244,10 @@ class liteMap:
         iy, ix = numpy.mgrid[0:Ny,0:Nx]
         modLMap[iy,ix] = numpy.sqrt(ly[iy]**2+lx[ix]**2)
 
+        # divide out area factor
+        area = twodPower.Nx*twodPower.Ny*twodPower.pixScaleX*twodPower.pixScaleY
+        twodPower.powerMap *= (twodPower.Nx*twodPower.Ny)**2 / area
+
         if bufferFactor > 1 or twodPower.Nx != Nx or twodPower.Ny != Ny:
             
             lx_shifted = numpy.fft.fftshift(twodPower.lx)
@@ -276,10 +280,10 @@ class liteMap:
 
             area = Nx*Ny*self.pixScaleX*self.pixScaleY
             #p = numpy.reshape(kk,[Ny,Nx]) /area * (Nx*Ny)**2
-            p = kk / area * (Nx*Ny)**2
+            p = kk #/ area * (Nx*Ny)**2
         else:
             area = Nx*Ny*self.pixScaleX*self.pixScaleY
-            p = twodPower.powerMap/area*(Nx*Ny)**2
+            p = twodPower.powerMap #/area*(Nx*Ny)**2
         
         realPart = numpy.sqrt(p)*numpy.random.randn(Ny,Nx)
         imgPart = numpy.sqrt(p)*numpy.random.randn(Ny,Nx)

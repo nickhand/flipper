@@ -12,7 +12,7 @@ except:
     pass
 from numpy.fft import fftshift,fftfreq,fft2,ifft2
 import copy
-from scipy.interpolate import splrep, splev
+from scipy.interpolate import splrep, splev, interp2d
 import scipy
 import pickle
 import sys, os
@@ -266,6 +266,35 @@ class power2D:
     def copy(self):
         return copy.deepcopy(self)
     
+    
+    def fillPowerFromTemplate(self, twodPower):
+        """
+        Fill the powerMap from a template twodPower
+        """
+        
+        # interpolate
+        if twodPower.Nx != self.Nx or twodPower.Ny != self.Ny:
+            
+            # first divide out the area factor
+            area = twodPower.Nx*twodPower.Ny*twodPower.pixScaleX*twodPower.pixScaleY
+            twodPower.powerMap *= (twodPower.Nx*twodPower.Ny)**2 / area
+            
+            lx_shifted = numpy.fft.fftshift(twodPower.lx)
+            ly_shifted = numpy.fft.fftshift(twodPower.ly)
+            twodPower_shifted = numpy.fft.fftshift(twodPower.powerMap)
+        
+            f_interp = interp2d(lx_shifted, ly_shifted, twodPower_shifted)
+        
+            cl_new = f_interp(numpy.fft.fftshift(self.lx), numpy.fft.fftshift(self.ly))
+            cl_new = numpy.fft.ifftshift(cl_new)
+            
+            area = self.Nx*self.Ny*self.pixScaleX*self.pixScaleY
+            cl_new *= area / (self.Nx*self.Ny*1.)**2
+            
+            self.powerMap[:] = cl_new[:]
+        else:
+            self.powerMap[:] = twodPower.powerMap[:]
+        
     def powerVsThetaInAnnulus(self,lLower,lUpper,deltaTheta=2.0,powerOfL=0,\
                               fitSpline=False,show=False,cutByMask=False):
         """
