@@ -271,19 +271,19 @@ class power2D:
         """
         Fill the powerMap from a template twodPower
         """
-        
+        tdp = twodPower.copy()
         # interpolate
-        if twodPower.Nx != self.Nx or twodPower.Ny != self.Ny:
+        if tdp.Nx != self.Nx or tdp.Ny != self.Ny:
             
             # first divide out the area factor
-            area = twodPower.Nx*twodPower.Ny*twodPower.pixScaleX*twodPower.pixScaleY
-            twodPower.powerMap *= (twodPower.Nx*twodPower.Ny)**2 / area
+            area = tdp.Nx*tdp.Ny*tdp.pixScaleX*tdp.pixScaleY
+            tdp.powerMap *= (tdp.Nx*tdp.Ny)**2 / area
             
-            lx_shifted = numpy.fft.fftshift(twodPower.lx)
-            ly_shifted = numpy.fft.fftshift(twodPower.ly)
-            twodPower_shifted = numpy.fft.fftshift(twodPower.powerMap)
+            lx_shifted = numpy.fft.fftshift(tdp.lx)
+            ly_shifted = numpy.fft.fftshift(tdp.ly)
+            tdp_shifted = numpy.fft.fftshift(tdp.powerMap)
         
-            f_interp = interp2d(lx_shifted, ly_shifted, twodPower_shifted)
+            f_interp = interp2d(lx_shifted, ly_shifted, tdp_shifted)
         
             cl_new = f_interp(numpy.fft.fftshift(self.lx), numpy.fft.fftshift(self.ly))
             cl_new = numpy.fft.ifftshift(cl_new)
@@ -293,7 +293,7 @@ class power2D:
             
             self.powerMap[:] = cl_new[:]
         else:
-            self.powerMap[:] = twodPower.powerMap[:]
+            self.powerMap[:] = tdp.powerMap[:]
         
     def powerVsThetaInAnnulus(self,lLower,lUpper,deltaTheta=2.0,powerOfL=0,\
                               fitSpline=False,show=False,cutByMask=False):
