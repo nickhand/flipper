@@ -281,12 +281,12 @@ class power2D:
             
             lx_shifted = numpy.fft.fftshift(tdp.lx)
             ly_shifted = numpy.fft.fftshift(tdp.ly)
-            tdp_shifted = tdp.powerMap
+            tdp_shifted = numpy.fft.fftshift(tdp.powerMap)
         
             f_interp = interp2d(lx_shifted, ly_shifted, tdp_shifted)
         
             cl_new = f_interp(numpy.fft.fftshift(self.lx), numpy.fft.fftshift(self.ly))
-            #cl_new = numpy.fft.ifftshift(cl_new)
+            cl_new = numpy.fft.ifftshift(cl_new)
             
             area = self.Nx*self.Ny*self.pixScaleX*self.pixScaleY
             cl_new *= area / (self.Nx*self.Ny*1.)**2
