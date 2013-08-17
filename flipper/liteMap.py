@@ -488,7 +488,7 @@ class liteMap:
         del filtData
         return filtMap
 
-    def createGaussianApodization(self,pad=10,kern=5,extraYPad = 0):
+    def createGaussianApodization(self,pad=10,kern=5,extraYPad = 0):     
         """
         @brief Creates a liteMap containing an apodization window
         @param pad the number of pixels that are first zeroed out at the edges
@@ -620,7 +620,50 @@ class liteMap:
         self.wcs.header.update('PV2_1',map.wcs.header['PV2_1'])
         self.wcs.updateFromHeader()
         self.header = self.wcs.header.copy()
-
+        
+def zeroPadY(templateMap, YPad, decSizeDeg=None):
+    """
+    Return a copy of templateMap, zero-padded in the declination direction such
+    that the width is equal to decSizeDeg
+    """
+    out = templateMap.copy()
+    
+    # do the zero-padding
+    pixScaleYDeg = templateMap.pixScaleY*180./numpy.pi
+    
+    if decSizeDeg is not None:
+        dy_pix = int((decSizeDeg - templateMap.Ny*pixScaleYDeg)/2./pixScaleYDeg)
+        print "Zero-padding %d pixels above and below the map..." %dy_pix
+        assert(dy_pix > 0.)
+    else:
+        dy_pix = YPad
+    out.data = numpy.pad(templateMap.data.copy(), ((dy_pix, dy_pix), (0, 0)), mode='constant')
+    
+    # update the header
+    meanRa, meanDec = templateMap.wcs.getCentreWCSCoords()
+    naxis2, naxis1 = out.data.shape
+    refPix1 = naxis1/2. + 1
+    refPix2 = naxis2/2. + 1
+    
+    out.wcs.header.update('NAXIS1', naxis1)
+    out.wcs.header.update('NAXIS2', naxis2)
+    out.wcs.header.update('CRVAL1', meanRa)
+    out.wcs.header.update('CRVAL2', meanDec)
+    out.wcs.header.update('CRPIX1', refPix1)
+    out.wcs.header.update('CRPIX2', refPix2)
+    out.wcs.updateFromHeader()
+    out.header = out.wcs.header.copy()
+    
+    # now update the attributes
+    out.Ny, out.Nx = out.data.shape
+    wcs = out.wcs
+    out.x0, out.y0 = wcs.pix2wcs(0,0)
+    out.x1, out.y1 = wcs.pix2wcs(out.Nx-1, out.Ny-1)
+    out.area = out.Nx*out.Ny*out.pixScaleX*out.pixScaleY*(180./numpy.pi)**2
+    
+    #out.info(showHeader=True)
+    return out
+        
 def liteMapFromFits(file,extension=0):
     """
     @brief Reads in a FITS file and creates a liteMap object out of it.
@@ -942,9 +985,6 @@ def getEmptyMapWithDifferentDims(m,Ny,Nx):
     mNew = liteMapFromDataAndWCS(data, m.wcs)
 
     return mNew
-
-
-
 
 def getCoordinateArrays( m ):
     """
