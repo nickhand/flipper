@@ -10,7 +10,7 @@ import numpy, scipy
 import pylab
 import copy
 import pyfits
-import astLib
+from astLib import *
 from flipperUtils import *
 from fftTools import fftFromLiteMap
 import fftTools
@@ -64,10 +64,10 @@ class liteMap:
         print "Pixel Scales: (%f,%f) arcmins. "%(self.pixScaleY*arcmin,self.pixScaleX*arcmin)
         print "Map Bounds: [(x0,y0), (x1,y1)]: [(%f,%f),(%f,%f)] (degrees)"%(self.x0,self.y0,self.x1,self.y1)
         print "Map Bounds: [(x0,y0), (x1,y1)]: [(%s,%s),(%s,%s)]"%\
-              (astLib.astCoords.decimal2hms(self.x0,':'),\
-               astLib.astCoords.decimal2dms(self.y0,':'),\
-               astLib.astCoords.decimal2hms(self.x1,':'),\
-               astLib.astCoords.decimal2dms(self.y1,':'))
+              (astCoords.decimal2hms(self.x0,':'),\
+               astCoords.decimal2dms(self.y0,':'),\
+               astCoords.decimal2hms(self.x1,':'),\
+               astCoords.decimal2dms(self.y1,':'))
         
         print "Map area = %f sq. degrees."%(self.area)
         print "Map mean = %f"%(self.data.mean())
@@ -417,7 +417,7 @@ class liteMap:
                          aspect=1./(numpy.cos(0.5*numpy.pi/180.*(self.y0+self.y1))),\
                          cmap=cmap)
         else:
-            astLib.astPlots.ImagePlot(self.data,self.wcs,colorMapName=colorMapName,\
+            astPlots.ImagePlot(self.data,self.wcs,colorMapName=colorMapName,\
                                       cutLevels=[vmin,vmax],colorBar=False,**kwd_args)
         
         cb = pylab.colorbar(orientation=colBarOrient,shrink=colBarShrink)
@@ -542,7 +542,7 @@ class liteMap:
         phOut = []
         if hpCoords != "J2000":
             for i in xrange(len(th)):
-                crd = astLib.astCoords.convertCoords("J2000", hpCoords, ph[i], th[i], 0.)
+                crd = astCoords.convertCoords("J2000", hpCoords, ph[i], th[i], 0.)
                 phOut.append(crd[0])
                 thOut.append(crd[1])
             thOut = numpy.array(thOut)
@@ -678,7 +678,7 @@ def liteMapFromFits(file,extension=0):
 
     [ltmap.Ny,ltmap.Nx] = ltmap.data.shape
 
-    wcs = astLib.astWCS.WCS(file,extensionName = extension)
+    wcs = astWCS.WCS(file,extensionName = extension)
     ltmap.wcs = wcs.copy()
     ltmap.header = ltmap.wcs.header
     ltmap.x0,ltmap.y0 = wcs.pix2wcs(0,0)
@@ -1096,7 +1096,7 @@ def makeEmptyCEATemplate(raSizeDeg, decSizeDeg,meanRa = 180., meanDec = 0.,\
     cardList.append(pyfits.Card('CUNIT1', 'DEG'))
     cardList.append(pyfits.Card('CUNIT2', 'DEG'))
     hh = pyfits.Header(cards=cardList)
-    wcs = astLib.astWCS.WCS(hh, mode='pyfits')
+    wcs = astWCS.WCS(hh, mode='pyfits')
     data = numpy.zeros([naxis2,naxis1])
     ltMap = liteMapFromDataAndWCS(data,wcs)
 
@@ -1148,7 +1148,7 @@ def makeEmptyCEATemplateAdvanced(ra0, dec0, \
     cardList.append(pyfits.Card('PC2_2',1))
 
     hh = pyfits.Header(cards=cardList)
-    wcs = astLib.astWCS.WCS(hh, mode='pyfits')
+    wcs = astWCS.WCS(hh, mode='pyfits')
     data = numpy.zeros([naxis2,naxis1])
     ltMap = liteMapFromDataAndWCS(data,wcs)
 
@@ -1162,7 +1162,7 @@ def getEmptyMapAtLocation(templateFile, x0, y0):
     """
     
     templateHDUList = pyfits.open(templateFile)
-    wcs = astLib.astWCS.WCS(templateFile)
+    wcs = astWCS.WCS(templateFile)
     templateHeader = wcs.header
 
     corner0 = numpy.array(wcs.pix2wcs(0,0))
