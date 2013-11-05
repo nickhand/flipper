@@ -92,7 +92,7 @@ class flipperDict( dict ):
         keys = self.keys()
         keys.sort()
         for key in keys:
-            f.write( "%s = %s\n" % (key,repr(self[key])) )
+            f.write( "%s = %s\n" % (key, self[key]))
         f.close()
 
     writeToFile = write_to_file
