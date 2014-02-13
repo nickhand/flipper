@@ -48,12 +48,16 @@ class liteMap:
     def __getstate__(self):
         dic =  self.__dict__.copy()
         dic['header'] = dic['header'].copy()
-        dic['wcs'] = dic['wcs'].copy()
         dic['data'] = dic['data'].copy()
+        
+        # delete the wcs attribute b/c astLib depends on SWIG which is not pickable
+        dic.pop('wcs')
         return dic
 
-    def __setstate__(self,dict):
-        self.__dict__ = dict
+    def __setstate__(self, dic):
+        
+        dic['wcs'] = astWCS.WCS(dic['header'], mode='pyfits')
+        self.__dict__ = dic
         
     def info(self,showHeader=False):
         """
