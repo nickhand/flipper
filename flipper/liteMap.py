@@ -19,7 +19,11 @@ import healpy
 import flipperUtils as utils
 import time
 from scipy.interpolate import splrep,splev, interp1d, interp2d
-
+if hasattr(numpy, 'pad'):
+    pad = numpy.pad
+else:
+    pad = zero_pad
+    
 class gradMap:
     """
     @brief  Class describing gradient of a liteMap
@@ -641,7 +645,7 @@ def zeroPadY(templateMap, YPad, decSizeDeg=None):
         assert(dy_pix > 0.)
     else:
         dy_pix = YPad
-    out.data = numpy.pad(templateMap.data.copy(), ((dy_pix, dy_pix), (0, 0)), mode='constant')
+    out.data = pad(templateMap.data.copy(), ((dy_pix, dy_pix), (0, 0)), mode='constant')
     
     # update the header
     meanRa, meanDec = templateMap.wcs.getCentreWCSCoords()

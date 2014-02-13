@@ -4,6 +4,38 @@ import sys, os
 import pylab
 from scipy.signal import convolve
 
+def zero_pad(array, pad_width, **kwargs):
+    """
+    Pads an array with zeros. This is a much version of numpy.pad in numpy v1.7.
+    
+    Parameters
+    ----------
+    array : array_like of rank N
+        Input array
+    pad_width : {sequence, int}
+        Number of values padded to the edges of each axis.
+        ((before_1, after_1), ... (before_N, after_N)) unique pad widths
+        for each axis.
+        ((before, after),) yields same before and after pad for each axis.
+        (pad,) or int is a shortcut for before = after = pad width for all
+        axes.
+    """
+    narray = numpy.array(array)
+    
+    # Create a new padded array
+    rank = range(len(narray.shape))
+    total_dim_increase = [numpy.sum(pad_width[i]) for i in rank]
+    offset_slices = [slice(pad_width[i][0],
+                           pad_width[i][0] + narray.shape[i])
+                     for i in rank]
+    new_shape = numpy.array(narray.shape) + total_dim_increase
+    newmat = numpy.zeros(new_shape).astype(narray.dtype)
+
+    # Insert the original array into the padded array
+    newmat[offset_slices] = narray
+
+    return newmat
+
 def dpssFast(N,W,K):
     import dpss
     sines = numpy.zeros(N)
