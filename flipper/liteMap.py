@@ -494,7 +494,7 @@ class liteMap:
         twoDBeam = splev(ft.modLMap.ravel(), tck)
         twoDBeam = numpy.reshape(twoDBeam, [ft.Ny, ft.Nx])
         
-        ft.kMap[:] *= twoDBeam.data[:]
+        ft.kMap[:] *= twoDBeam[:]
         
         data_conv = numpy.real(numpy.fft.ifft2(ft.kMap))
         out = self.copy()
