@@ -1099,7 +1099,9 @@ def binDataAroundPoint( m, x0, y0, bins, median = False ):
     
 def makeEmptyCEATemplate(raSizeDeg, decSizeDeg,meanRa = 180., meanDec = 0.,\
                       pixScaleXarcmin = 0.5, pixScaleYarcmin=0.5):
-    assert(meanDec == 0.,'mean dec other than zero not implemented yet')
+    
+    if (meanDec != 0.):
+        raise NotImplementedError('mean dec other than zero not implemented yet.')
 
 
     cdelt1 = -pixScaleXarcmin/60.
