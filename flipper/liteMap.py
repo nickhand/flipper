@@ -483,7 +483,8 @@ class liteMap:
 
     def convolveWithBeam(self, ell, B_ell):
         """
-        @brief convolve the map with the beam specified as input in Fourier space
+        @brief Return a liteMap object holding the data convolved with the beam 
+               specified as input in Fourier space
         @param ell the 1D ell values corresponding to the beam B_l
         @param nSigma the 1D beam
         """
@@ -496,7 +497,9 @@ class liteMap:
         ft.kMap[:] *= twoDBeam.data[:]
         
         data_conv = numpy.real(numpy.fft.ifft2(ft.kMap))
-        self.data[:] = data_conv[:]
+        out = self.copy()
+        out.data[:] = data_conv[:]
+        return out
 
     def filterFromList(self,lFl,setMeanToZero=False):
         """
