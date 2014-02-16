@@ -164,6 +164,10 @@ class liteMap:
         else:
             ft.kMap[iy_flat, ix_flat] = splev(ft.modLMap[iy_flat, ix_flat], sreal) + 1j*splev(ft.modLMap[iy_flat, ix_flat], simag)
         
+        # avoid weird extrapolations
+        id = numpy.where(ft.modLMap > elTrim) 
+        ft.kMap[id] = 0.
+        
         return ft
         
     def fillWithGaussianRandomField(self,ell,Cell,bufferFactor = 1):
@@ -481,14 +485,15 @@ class liteMap:
         del data
         return smMap
 
-    def convolveWithBeam(self, ell, B_ell, trimAtL=1e4):
+    def convolveWithBeam(self, ell, B_ell):
         """
         @brief Return a liteMap object holding the data convolved with the beam 
                specified as input in Fourier space
         @param ell the 1D ell values corresponding to the beam B_ell
         @param B_ell the 1D beam values in Fourier space
         """
-        beamFT = self.fillFourierTransform(ell, B_ell, elTrim=trimAtL)
+        
+        beamFT = self.fillFourierTransform(ell, B_ell, elTrim=numpy.amax(ell))
         mapFT = fftTools.fftFromLiteMap(self)
         
         mapFT.kMap[:] *= beamFT.kMap[:]
