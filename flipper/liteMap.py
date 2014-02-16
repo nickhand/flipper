@@ -485,18 +485,15 @@ class liteMap:
         """
         @brief Return a liteMap object holding the data convolved with the beam 
                specified as input in Fourier space
-        @param ell the 1D ell values corresponding to the beam B_l
-        @param nSigma the 1D beam
+        @param ell the 1D ell values corresponding to the beam B_ell
+        @param B_ell the 1D beam values in Fourier space
         """
-        ft = fftTools.fftFromLiteMap(self)
+        beamFT = self.fillWithFourierTransform(ell, B_ell)
+        mapFT = fftTools.fftFromLiteMap(self)
         
-        tck = splrep(ell, B_ell)
-        twoDBeam = splev(ft.modLMap.ravel(), tck)
-        twoDBeam = numpy.reshape(twoDBeam, [ft.Ny, ft.Nx])
+        mapFT.kMap[:] *= beamFT.kMap[:]
         
-        ft.kMap[:] *= twoDBeam[:]
-        
-        data_conv = numpy.real(numpy.fft.ifft2(ft.kMap))
+        data_conv = numpy.real(numpy.fft.ifft2(mapFT.kMap))
         out = self.copy()
         out.data[:] = data_conv[:]
         return out
