@@ -481,14 +481,14 @@ class liteMap:
         del data
         return smMap
 
-    def convolveWithBeam(self, ell, B_ell):
+    def convolveWithBeam(self, ell, B_ell, trimAtL=1e4):
         """
         @brief Return a liteMap object holding the data convolved with the beam 
                specified as input in Fourier space
         @param ell the 1D ell values corresponding to the beam B_ell
         @param B_ell the 1D beam values in Fourier space
         """
-        beamFT = self.fillFourierTransform(ell, B_ell)
+        beamFT = self.fillFourierTransform(ell, B_ell, ellTrim=trimAtL)
         mapFT = fftTools.fftFromLiteMap(self)
         
         mapFT.kMap[:] *= beamFT.kMap[:]
