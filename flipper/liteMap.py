@@ -481,6 +481,23 @@ class liteMap:
         del data
         return smMap
 
+    def convolveWithBeam(self, ell, B_ell):
+        """
+        @brief convolve the map with the beam specified as input in Fourier space
+        @param ell the 1D ell values corresponding to the beam B_l
+        @param nSigma the 1D beam
+        """
+        ft = fftTools.fftFromLiteMap(self)
+        
+        tck = splrep(ell, B_ell)
+        twoDBeam = splev(ft.modLMap.ravel(), tck)
+        twoDBeam = numpy.reshape(twoDBeam, [ft.Ny, ft.Nx])
+        
+        ft.kMap[:] *= twoDBeam.data[:]
+        
+        data_conv = numpy.real(numpy.fft.ifft2(ft.kMap))
+        self.data[:] = data_conv[:]
+
     def filterFromList(self,lFl,setMeanToZero=False):
         """
         @brief Given an l-space filter as a tuple [\f$\ell,F_\ell\f$] returns a filtered map
