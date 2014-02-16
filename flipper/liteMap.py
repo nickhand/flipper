@@ -488,7 +488,7 @@ class liteMap:
         @param ell the 1D ell values corresponding to the beam B_ell
         @param B_ell the 1D beam values in Fourier space
         """
-        beamFT = self.fillFourierTransform(ell, B_ell, ellTrim=trimAtL)
+        beamFT = self.fillFourierTransform(ell, B_ell, elTrim=trimAtL)
         mapFT = fftTools.fftFromLiteMap(self)
         
         mapFT.kMap[:] *= beamFT.kMap[:]
