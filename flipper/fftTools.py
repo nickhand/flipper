@@ -5,25 +5,30 @@
 """
 
 import numpy
-import flipperUtils as utils
-try:
-    import pylab
-except:
-    pass
-from numpy.fft import fftshift,fftfreq,fft2,ifft2
-import copy
+import copy, sys, os, trace, pickle
 from scipy.interpolate import splrep, splev, interp2d
 import scipy
-import pickle
-import sys, os
 from flipperUtils import *
-import trace
 import pyfits
+
+try:
+    import pylab
+except ImportError:
+    pass
+
+have_pyFFTW = True
+try:
+    from pyfftw.interfaces.numpy_fft import fftshift, ifftshift, fftfreq, fft2, ifft2
+except:
+    have_pyFFTW = False
+    from numpy.fft import fftshift, ifftshift, fftfreq, fft2, ifft2
+
 taperDir = os.environ["FLIPPER_DIR"] + os.path.sep + "tapers"
+
 
 class fft2D:
     """
-    @brief class describing the two dimensional FFT of a liteMap 
+    A class describing the two dimensional FFT of a liteMap 
     """
     def __init__(self):
         pass
@@ -31,12 +36,36 @@ class fft2D:
     def copy(self):
         return copy.deepcopy(self)
 
-        
-    def mapFromFFT(self,kFilter=None,kFilterFromList=None,showFilter=False,setMeanToZero=False,returnFFT=False):
+    def mapFromFFT(self, kFilter=None, kFilterFromList=None, showFilter=False,
+                   setMeanToZero=False, returnFFT=False, threads=1):
         """
-        @brief Performs inverse fft (map from FFT) with an optional filter.
-        @param kFilter Optional; If applied, resulting map = IFFT(fft*kFilter) 
-        @return (optinally filtered) 2D real array
+        Perform the inverse fft (map from FFT) with an optional filter.
+        
+        Parameters
+        ----------
+        kFilter : array_like, optional
+            2D array specifying a k-space filter to apply. If applied, resulting 
+            map is IFFT(fft*kFilter). Default is ``None``.
+        kFilterFromList : tuple, optional
+            Tuple of length 2 specifying 1D filter (ell, F_ell), which will be 
+            interpolated into a 2D array. Default is ``None``.
+        showFilter : bool, optional
+            Whether to plot the filter. Default is ``False``.
+        setMeanToZero : bool, optional
+            Whether to set the ell = 0 pixel to zero (zeroes mean in real space).
+            Default is ``False``.
+        returnFFT : bool, optional
+            Whether to return the fftTools.fft2D class as well. Default is 
+            ``False``.
+        threads : int, optional
+            Number of threads to use in pyFFTW calculations. Default is 1. 
+            
+        Returns
+        -------
+        data : array_like
+            The (optinally filtered) 2D real space data array
+        ftMap : fftTools.fft2D, optional
+            The fft2D object, returned if returnFFT = ``True``.
         """
         kMap = self.kMap.copy()
         kFilter0 = numpy.real(kMap.copy())*0.+ 1.
@@ -58,11 +87,9 @@ class fft2D:
         if setMeanToZero:
             id = numpy.where(self.modLMap == 0.)
             kFilter0[id] = 0.
-        #showFilter =  True
+            
         if showFilter:
             pylab.semilogy(l,Fl,'r',ll,kk,'b.')
-            #utils.saveAndShow()
-            #sys.exit()
             pylab.matshow(fftshift(kFilter0),origin="down",extent=[numpy.min(self.lx),\
                                                          numpy.max(self.lx),\
                                                          numpy.min(self.ly),\
@@ -70,24 +97,35 @@ class fft2D:
             pylab.show()
         
         kMap[:,:] *= kFilter0[:,:]
+        if have_pyFFTW: 
+            data = numpy.real(ifft2(kMap), threads=threads)
+        else:
+            data = numpy.real(ifft2(kMap))
         if returnFFT:
             ftMap = self.copy()
             ftMap.kMap = kMap.copy()
-            return numpy.real(ifft2(kMap)),ftMap
+            return data, ftMap
         else:
-            return numpy.real(ifft2(kMap))
-
-    def writeFits(self,file,overWrite=False):
+            return data
+    #end mapFromFFT
+    
+    #---------------------------------------------------------------------------
+    def writeFits(self, file, overWrite=False):
         """
-        23-10-2009: added by JB Juin
-        02-12-2009: rewrote to include proper WCS keywords (sudeep)
-        so that multipoles can be read off in ds9 
-        @brief Write a fft2D as a Fits file
+        Write a fftTools.fft2D objects as a FITS file
+        
+        Parameters
+        ----------
+        file : str
+            The name of the FITS file to write.
+        overWrite : bool, optional
+            Whether to overwrite any exisiting files with the desired name.
+            Default is ``False``.
         """
         h = pyfits.Header()
         h.update("COMMENT","flipper.fft2D")
-        idx = numpy.where(numpy.fft.fftshift(self.lx == 0))
-        idy = numpy.where(numpy.fft.fftshift(self.ly == 0))
+        idx = numpy.where(fftshift(self.lx == 0))
+        idy = numpy.where(fftshift(self.ly == 0))
         h.update('CTYPE1','ANG-FREQ')
         h.update('CTYPE2','ANG-FREQ')
         h.update("CRPIX1",idx[0][0]+1)
@@ -101,8 +139,8 @@ class fft2D:
         del h 
         h = pyfits.Header()
         h.update("COMMENT","flipper.fft2D")
-        idx = numpy.where(numpy.fft.fftshift(self.lx == 0))
-        idy = numpy.where(numpy.fft.fftshift(self.ly == 0))
+        idx = numpy.where(fftshift(self.lx == 0))
+        idy = numpy.where(fftshift(self.ly == 0))
         h.update('CTYPE1','ANG-FREQ')
         h.update('CTYPE2','ANG-FREQ')
         h.update("CRPIX1",idx[0][0]+1)
@@ -113,58 +151,79 @@ class fft2D:
         h.update("CDELT2",numpy.abs(self.ly[0]-self.ly[1]))
         realFile = file.split('.')[0]+'_imag.fits'
         pyfits.writeto(realFile,fftshift(numpy.imag(self.kMap)),header=h,clobber=overWrite)
+    #end writeFits
+    
+    #---------------------------------------------------------------------------
+    def trimAtL(self, elTrim):
+        """
+         Trim a 2D fft and return the trimmed fft2D object. 
+         
+         Notes
+         ----- 
+         The pixel scales are adjusted so that the trimmed dimensions correspond 
+         to the same sized map in real-space (i.e. trimming -> poorer resolution 
+         real space map).
+         
+         Parameters
+         ----------
+         elTrim : float 
+            The multipole number to trim the fft above. Must be > 0. 
         
-    def trimAtL(self,elTrim):
+        Returns
+        -------
+        ft : fftTools.fft2D
+            The fft2D object holding the trimmed fft.
         """
-         @brief Trims a 2-D fft and returns the trimmed fft2D object. Note 
-         that the pixel scales are adjusted so that the trimmed dimensions correspond 
-         to the same sized map in real-space (i.e. trimming ->
-         poorer resolution real space map)
-         @pararm elTrim real >0 ; the l to trim at 
-         @return fft@D instance
-        """
-        assert(elTrim>0)
-        ft = fft2D()
-        idx = numpy.where((self.lx < elTrim) & (self.lx > -elTrim))
-        idy = numpy.where((self.ly< elTrim) & (self.ly > -elTrim))
+        assert(elTrim > 0)
+        
+        ft    = fft2D()
+        idx   = numpy.where((self.lx < elTrim) & (self.lx > -elTrim))
+        idy   = numpy.where((self.ly < elTrim) & (self.ly > -elTrim))
         ft.Ny = len(idy[0])
         ft.Nx = len(idx[0])
         
-        trimA = self.kMap[idy[0],:]
-        trimB = trimA[:,idx[0]]
+        trimA   = self.kMap[idy[0], :]
+        trimB   = trimA[:, idx[0]]
         ft.kMap = trimB
-        del trimA,trimB
+        del trimA, trimB
+        
         ft.pixScaleX = self.pixScaleX*self.Nx/ft.Nx
         ft.pixScaleY = self.pixScaleY*self.Ny/ft.Ny
-        ft.lx = self.lx[idx[0]]
-        ft.ly = self.ly[idy[0]]
-        ix = numpy.mod(numpy.arange(ft.Nx*ft.Ny),ft.Nx)
-        iy = numpy.arange(ft.Nx*ft.Ny)/ft.Nx
+        ft.lx        = self.lx[idx[0]]
+        ft.ly        = self.ly[idy[0]]
+        ix           = numpy.mod(numpy.arange(ft.Nx*ft.Ny), ft.Nx)
+        iy           = numpy.arange(ft.Nx*ft.Ny)/ft.Nx
         
-        modLMap = numpy.zeros([ft.Ny,ft.Nx])
-        modLMap[iy,ix] = numpy.sqrt(ft.lx[ix]**2 + ft.ly[iy]**2)
-        
-        ft.modLMap  =  modLMap
+        modLMap         = numpy.zeros([ft.Ny, ft.Nx])
+        modLMap[iy, ix] = numpy.sqrt(ft.lx[ix]**2 + ft.ly[iy]**2)
+        ft.modLMap      = modLMap
     
-        
-        ft.ix = ix
-        ft.iy = iy
-        ft.thetaMap = numpy.zeros([ft.Ny,ft.Nx])
-        ft.thetaMap[iy[:],ix[:]] = numpy.arctan2(ft.ly[iy[:]],ft.lx[ix[:]])
-        ft.thetaMap *=180./numpy.pi
+        ft.ix                    = ix
+        ft.iy                    = iy
+        ft.thetaMap              = numpy.zeros([ft.Ny, ft.Nx])
+        ft.thetaMap[iy[:], ix[:]] = numpy.arctan2(ft.ly[iy[:]], ft.lx[ix[:]])
+        ft.thetaMap *= 180./numpy.pi
         return ft
+    #end trimAtL
 
-    def plot(self,log=False,title='',show=False,zoomUptoL=None):
+    #---------------------------------------------------------------------------
+    def plot(self, log=False, title='', show=False, zoomUptoL=None):
         """
-        @brief Plots an fft2D object as two images, one for the real part and
+        Plot the fft2D object as two images, one for the real part and
         another for the imaginary part.
-        @param log True means log scale plotting.
-        @param title title to put on the plots.
-        @param show If True, will show the plots, otherwise create a pylab object
-        without showing.
-        @param zoomUptoL If set to L, zooms in on the 2-D fft sub-space [-L,L]X[-L,L]
-        and then plots.
-        @returns Pylab object with plots.
+        
+        Parameters
+        ----------
+        log : bool, optional
+            If ``True``, use a log-scale. Default is ``False``.
+        title : str, optional
+            The title to put on the plots.
+        show : bool, optional 
+            If ``True``, show the plots, or otherwise, create a pylab object 
+            without showing. Default is ``False``. 
+        zoomUptoL float, optional
+            The multipole number L to zoom to on the 2D fft sub-space, so that
+            we show [-L, L] X [-L, L]. Default is ``None``.
         """
         pReal = fftshift(numpy.real(self.kMap.copy()))
         pImag = fftshift(numpy.imag(self.kMap.copy()))
@@ -195,70 +254,87 @@ class fft2D:
         if show:
             pylab.show()
         
-        
-def fftFromLiteMap(liteMap,applySlepianTaper = False,nresForSlepian=3.0):
+    #end plot
+    
+    #---------------------------------------------------------------------------    
+#endclass fft2D
+
+#-------------------------------------------------------------------------------
+def fftFromLiteMap(liteMap, applySlepianTaper=False, nresForSlepian=3.0, threads=1):
     """
-    @brief Creates an fft2D object out of a liteMap
-    @param liteMap The map whose fft is being taken
-    @param applySlepianTaper If True applies the lowest order taper (to minimize edge-leakage)
-    @param nresForSlepian If above is True, specifies the resolution of the taeper to use.
+    Create an fft2D object from a liteMap.
+    
+    Parameters
+    ----------
+    liteMap : liteMap.liteMap 
+        The map object whose fft is being taken.
+    applySlepianTaper : bool, optional 
+        If ``True``, apply the lowest order taper (to minimize edge-leakage).
+        Default is ``False``.
+    nresForSlepian : float, optional 
+        If ``applySlepianTaper`` = ``True``, this specifies the resolution of 
+        the taper to use. Default is 3.0.
+    threads : int, optional
+        Number of threads to use in pyFFTW calculations. Default is 1.
+        
+    Returns
+    -------
+    ft : fftTools.fft2D
+        The fft2D object corresponding the input liteMap.
     """
     ft = fft2D()
         
     ft.Nx = liteMap.Nx
     ft.Ny = liteMap.Ny
-    trace.issue("flipper.fftTools",1, "Taking FFT of map with (Ny,Nx)= (%f,%f)"%(ft.Ny,ft.Nx))
+    trace.issue("flipper.fftTools", 1, "Taking FFT of map with (Ny, Nx)= (%f, %f)" %(ft.Ny,ft.Nx))
     
     ft.pixScaleX = liteMap.pixScaleX 
-                
-    
     ft.pixScaleY = liteMap.pixScaleY
     
+    lx =  2*numpy.pi*fftfreq(ft.Nx, d=ft.pixScaleX)
+    ly =  2*numpy.pi*fftfreq(ft.Ny, d=ft.pixScaleY)
     
-    lx =  2*numpy.pi  * fftfreq( ft.Nx, d = ft.pixScaleX )
-    ly =  2*numpy.pi  * fftfreq( ft.Ny, d = ft.pixScaleY )
-    
-    ix = numpy.mod(numpy.arange(ft.Nx*ft.Ny),ft.Nx)
+    ix = numpy.mod(numpy.arange(ft.Nx*ft.Ny), ft.Nx)
     iy = numpy.arange(ft.Nx*ft.Ny)/ft.Nx
     
-    modLMap = numpy.zeros([ft.Ny,ft.Nx])
+    modLMap        = numpy.zeros([ft.Ny, ft.Nx])
     modLMap[iy,ix] = numpy.sqrt(lx[ix]**2 + ly[iy]**2)
-    
     ft.modLMap  =  modLMap
     
     ft.lx = lx
     ft.ly = ly
     ft.ix = ix
     ft.iy = iy
-    ft.thetaMap = numpy.zeros([ft.Ny,ft.Nx])
-    ft.thetaMap[iy[:],ix[:]] = numpy.arctan2(ly[iy[:]],lx[ix[:]])
-    ft.thetaMap *=180./numpy.pi
+    ft.thetaMap = numpy.zeros([ft.Ny, ft.Nx])
+    ft.thetaMap[iy[:], ix[:]] = numpy.arctan2(ly[iy[:]], lx[ix[:]])
+    ft.thetaMap *= 180./numpy.pi
     
-    map = liteMap.data.copy()
-    #map = map0.copy()
-    #map[:,:] =map0[::-1,:]
-    taper = map.copy()*0.0 + 1.0
+    mp = liteMap.data.copy()
+    taper = mp.copy()*0. + 1.0
 
-    if (applySlepianTaper) :
+    if (applySlepianTaper):
         try:
-            f = open(taperDir + os.path.sep + 'taper_Ny%d_Nx%d_Nres%3.1f'%(ft.Ny,ft.Nx,nresForSlepian))
+            f = open(taperDir + os.path.sep + 'taper_Ny%d_Nx%d_Nres%3.1f' %(ft.Ny, ft.Nx, nresForSlepian))
             taper = pickle.load(f)
             f.close()
         except:
-            taper = slepianTaper00(ft.Nx,ft.Ny,nresForSlepian)
-            f = open(taperDir + os.path.sep + 'taper_Ny%d_Nx%d_Nres%3.1f'%(ft.Ny,ft.Nx,nresForSlepian),mode="w")
+            taper = slepianTaper00(ft.Nx, ft.Ny,nresForSlepian)
+            f = open(taperDir + os.path.sep + 'taper_Ny%d_Nx%d_Nres%3.1f'%(ft.Ny, ft.Nx, nresForSlepian), mode="w")
             pickle.dump(taper,f)
             f.close()
     
-    ft.kMap = fft2(map*taper)
-    del map, modLMap, lx, ly
+    if have_pyFFTW: 
+        ft.kMap = fft2(mp*taper, threads=threads)
+    else:
+        ft.kMap = fft2(mp*taper)
+    del mp, modLMap, lx, ly
     return ft
+#end fftFromLiteMap
 
-
-        
+#-------------------------------------------------------------------------------
 class power2D:
     """
-    @brief A class describing the 2-D power spectrum of a liteMap
+    A class describing the 2D power spectrum of a liteMap
     """
     def __init__(self):
         pass
@@ -266,12 +342,17 @@ class power2D:
     def copy(self):
         return copy.deepcopy(self)
     
-    
     def fillPowerFromTemplate(self, twodPower):
         """
-        Fill the powerMap from a template twodPower
+        Fill the power2D.powerMap with the input power array.
+        
+        Parameters
+        ----------
+        twodPower : array_like
+            The 2D data array specifying the template power to fill with.
         """
         tdp = twodPower.copy()
+        
         # interpolate
         if tdp.Nx != self.Nx or tdp.Ny != self.Ny:
             
@@ -279,14 +360,14 @@ class power2D:
             area = tdp.Nx*tdp.Ny*tdp.pixScaleX*tdp.pixScaleY
             tdp.powerMap *= (tdp.Nx*tdp.Ny)**2 / area
             
-            lx_shifted = numpy.fft.fftshift(tdp.lx)
-            ly_shifted = numpy.fft.fftshift(tdp.ly)
-            tdp_shifted = numpy.fft.fftshift(tdp.powerMap)
+            lx_shifted  = fftshift(tdp.lx)
+            ly_shifted  = fftshift(tdp.ly)
+            tdp_shifted = fftshift(tdp.powerMap)
         
             f_interp = interp2d(lx_shifted, ly_shifted, tdp_shifted)
         
-            cl_new = f_interp(numpy.fft.fftshift(self.lx), numpy.fft.fftshift(self.ly))
-            cl_new = numpy.fft.ifftshift(cl_new)
+            cl_new = f_interp(fftshift(self.lx), fftshift(self.ly))
+            cl_new = ifftshift(cl_new)
             
             area = self.Nx*self.Ny*self.pixScaleX*self.pixScaleY
             cl_new *= area / (self.Nx*self.Ny*1.)**2
@@ -294,23 +375,50 @@ class power2D:
             self.powerMap[:] = cl_new[:]
         else:
             self.powerMap[:] = tdp.powerMap[:]
+    #end fillPowerFromTemplate
         
-    def powerVsThetaInAnnulus(self,lLower,lUpper,deltaTheta=2.0,powerOfL=0,\
-                              fitSpline=False,show=False,cutByMask=False):
+    #---------------------------------------------------------------------------
+    def powerVsThetaInAnnulus(self, lLower, lUpper, deltaTheta=2., powerOfL=0,
+                              fitSpline=False, show=False, cutByMask=False):
         """
-        @brief Given an anuulus, radially averages the power spectrum to produce a
-        function of angle theta \f$P(\theta)\f$
-        @param lLower Lower bound of the annulus
-        @param lUpper Upper bound of the annulus
-        @param deltaTheta Width of bins in theta
-        @param powerOfL The power of L to multiply to PS with, before radial averaging
-        @param fitspline If True returns a spline fit to the function
-        @param show If True displays the function \f$P(\theta)\f$ 
-        @param cutByMask If a kMask exists with p2d, then skip over masked pixels
+        Given an annulus, radially average the power spectrum to produce a
+        function of angle theta, :math:`P(\theta)`.
         
-        @return (If fitSpline:) binnedPA, binnedTheta, binCount, binStdDev,logspl,threshold
+        Parameters
+        ----------
+        lLower : float
+            The multipole lower bound of the annulus.
+        lUpper : float 
+            The multipole upper bound of the annulus.
+        deltaTheta : float, optional
+            The width of bins in theta [units ``degrees``]. Default is 2.
+        powerOfL : int, optional 
+            The power of L to multiply to power spectrum by, before radial 
+            averaging. Default is 0.
+        fitspline : bool, optional 
+            If ``True``, return a spline fit to the 1D function. Default 
+            is ``False``.
+        show : bool, optional 
+            If ``True``, display the function :math: `P(\theta)`. Default 
+            is ``False``.
+        cutByMask : bool, optional 
+            If a kMask exists, then skip over masked pixels. Default is ``False``.
         
-        @return (else:) binnedPA, binnedTheta, binCount, binStdDev 
+        Returns
+        ------- 
+        binnedPA : array_like
+            The binned 1D power spectrum.
+        binnedTheta : array_like
+            The binned 1D theta values. 
+        binCount : array_like
+            The counts for each bin.
+        binStdDev : array_like
+            The standard deviations in each bin
+        logspl : spline, optional
+            The spline object of the log power spectrum, as returned by 
+            scipy.interpolate.splrep.
+        threshold : float, optional
+            The median of the absolute value of the binned power spectrum.
         """
         if not(cutByMask):
             a= (self.modLMap < lUpper)
@@ -320,61 +428,69 @@ class power2D:
             b= ((self.modLMap > lLower)*(self.kMask>0))
         c = a*b
         
-        indices = numpy.where(c)
-        p = self.powerMap*self.modLMap**powerOfL
+        indices   = numpy.where(c)
+        p         = self.powerMap*self.modLMap**powerOfL
         thetaAnnu = numpy.ravel(self.thetaMap[indices])
         powerAnnu = (numpy.ravel(p[indices]))
         
-        binnedTheta, binnedPA,binStdDev,binCount = utils.bin(thetaAnnu,powerAnnu,deltaTheta)
+        binnedTheta, binnedPA, binStdDev, binCount = bin(thetaAnnu, powerAnnu, deltaTheta)
         
         if fitSpline:
-            logspl = splrep(binnedTheta,numpy.log(numpy.abs(binnedPA)),s=2,k=4)
+            logspl = splrep(binnedTheta, numpy.log(numpy.abs(binnedPA)), s=2, k=4)
             median = numpy.median(numpy.abs(binnedPA))
             
         if show:
             pylab.plot(binnedTheta,numpy.log(numpy.abs(binnedPA)),'ro')
             if fitSpline:
                 theta = numpy.arange(180.)
-                logSmPA = splev(theta,logspl)
-                pylab.plot(theta,logSmPA)
+                logSmPA = splev(theta, logspl)
+                pylab.plot(theta, logSmPA)
                 med = theta.copy()*0. +median
-                pylab.plot(theta,numpy.log(med))
+                pylab.plot(theta, numpy.log(med))
                    
             pylab.xlim(-180.,180.)
-            pylab.xlabel(r'$\theta$',fontsize=15)
-            pylab.ylabel(r'$\langle \ell^%d C_\ell (\theta)\rangle$'%powerOfL,\
-                         fontsize=15)
+            pylab.xlabel(r'$\theta$', fontsize=15)
+            pylab.ylabel(r'$\langle \ell^%d C_\ell (\theta)\rangle$' %powerOfL, fontsize=15)
             pylab.show()
-                
-        
-        
+
         if fitSpline:
             logspl = logspl
             threshold = median
             return binnedPA, binnedTheta, binCount, binStdDev,logspl,threshold
         else:
             return binnedPA, binnedTheta, binCount, binStdDev
-        
-    def meanPowerInAnnulus(self,lLower,lUpper,\
-                           thetaAvoid1=None,\
-                           thetaAvoid2=None,\
-                           downweightingSpline=None,\
-                           weightMap=None,\
-                           threshold=None,\
-                           cutByThreshold = False,\
-                           cutByMask = False,\
-                           showWeight=False,\
+    
+    #end powerVsThetaInAnnulus
+    
+    #---------------------------------------------------------------------------    
+    def meanPowerInAnnulus(self, lLower, lUpper, thetaAvoid1=None, thetaAvoid2=None,
+                           downweightingSpline=None, weightMap=None, threshold=None,
+                           cutByThreshold=False, cutByMask=False, showWeight=False,
                            nearestIntegerBinning=True):
         """
-        @brief Given an annulus, takes the mean of the power spectrum in the upper half plane.
-        @param lLower Lower bound of the annulus
-        @param lUpper Upper bound of the annulus
-        @param thetaAvoid1/2 tuples .e.g.[20,60], [120,130] which decides what theta to cut.
-        @param downweightingSpline Spline evaluated by power2D.powerVsThetaInAnnulus()
-        which is used to weight pixels while adding them.
-        @param threshold If present uniform weighting is done when spline is below threshold
-        @param cutByThreshold If True, throw out thetas where spline is above threshold.
-        @param cutByMask If set to True, multiply the annulus by the k-space mask before adding pixels (see createKspaceMask).
+        Given an annulus, take the mean of the power spectrum in the upper half plane.
+        
+        Parameters
+        ----------
+        lLower : float
+            The lower bound of the annulus.
+        lUpper : float 
+            The upper bound of the annulus.
+        thetaAvoid1/2 : tuples, optional
+            A tuple, e.g. [20,60], [120,130] which decides what theta to cut.
+            Default is ``None``.
+        downweightingSpline : spline, optional
+            Spline evaluated by power2D.powerVsThetaInAnnulus(), which is used 
+            to weight pixels while adding them. Default is ``None``.
+        threshold : float, optional
+            If present, uniform weighting is done when spline is below threshold.
+        cutByThreshold : bool, optional
+            If ``True``, throw out thetas where spline is above threshold. 
+            Default is ``False``.
+        cutByMask : bool, optional 
+            If ``True``, multiply the annulus by the k-space mask before adding 
+            pixels (see createKspaceMask). Default is ``False``.
+            
         @return mean,stdDev,number_of_pixels
         """
         lxMap = self.modLMap.copy()*0.
@@ -788,8 +904,8 @@ class power2D:
         """
         h = pyfits.Header()
         h.update("COMMENT","flipper.power2D")
-        idx = numpy.where(numpy.fft.fftshift(self.lx == 0))
-        idy = numpy.where(numpy.fft.fftshift(self.ly == 0))
+        idx = numpy.where(fftshift(self.lx == 0))
+        idy = numpy.where(fftshift(self.ly == 0))
         h.update('CTYPE1','ANG-FREQ')
         h.update('CTYPE2','ANG-FREQ')
         h.update("CRPIX1",idx[0][0]+1)
@@ -939,7 +1055,7 @@ def plotBinnedPower(lbin,plbin,\
         return deltaT
 
 
-def powerFromFFT(ft,ft2=None):
+def powerFromFFT(ft, ft2=None):
     """
     @brief Creates a power2D object from ffts.
     @param ft fft2D object
@@ -968,47 +1084,48 @@ def powerFromFFT(ft,ft2=None):
     
     return p2d
 
-def powerFromLiteMap(liteMap,liteMap2=None,applySlepianTaper=False,nresForSlepian=3.0):
+def powerFromLiteMap(liteMap, liteMap2=None, applySlepianTaper=False, 
+                     nresForSlepian=3., threads=1):
     """
-    @brief Returns the power spectrum of a liteMap or a cross spectrum of two liteMaps
+    Returns the power spectrum of a liteMap or a cross spectrum of two liteMaps.
+    
     """
-    ft = fftFromLiteMap(liteMap,applySlepianTaper = \
-                    applySlepianTaper,
-                    nresForSlepian=nresForSlepian)
+    ft = fftFromLiteMap(liteMap, applySlepianTaper=pplySlepianTaper,
+                        nresForSlepian=nresForSlepian, threads=threads)
     if liteMap2 == None:
         p2d = powerFromFFT(ft)
     else:
-        ft2 = fftFromLiteMap(liteMap2,applySlepianTaper = \
-                    applySlepianTaper,
-                    nresForSlepian=nresForSlepian)
-        p2d = powerFromFFT(ft2,ft)
+        ft2 = fftFromLiteMap(liteMap2, applySlepianTaper=applySlepianTaper,
+                        nresForSlepian=nresForSlepian, threads=threads)
+        p2d = powerFromFFT(ft2, ft)
     return p2d
+#end powerFromLiteMap
 
-def noisePowerFromLiteMaps(liteMap1,liteMap2,applySlepianTaper=True,nresForSlepian=3.0):
-    """@brief returns a noise estmate in the first map, by subtracting the cross-spectrum with
+#-------------------------------------------------------------------------------
+def noisePowerFromLiteMaps(liteMap1, liteMap2, applySlepianTaper=True,
+                           nresForSlepian=3., threads=1):
+    """
+    Returns a noise estmate in the first map, by subtracting the cross-spectrum with
     the second map (on the same patch of sky) from its auto-spectrum
-    PSNoise =  PS(m1)- PS(m1Xm2) """
+    PSNoise =  PS(m1)- PS(m1Xm2) 
+    """
     
-    ft1 = fftFromLiteMap(liteMap1,applySlepianTaper=applySlepianTaper,
-                         nresForSlepian=nresForSlepian)
+    ft1 = fftFromLiteMap(liteMap1, applySlepianTaper=applySlepianTaper,
+                         nresForSlepian=nresForSlepian, threads=threads)
     
-    ft2 = fftFromLiteMap(liteMap2,applySlepianTaper=applySlepianTaper,
-                         nresForSlepian=nresForSlepian)
+    ft2 = fftFromLiteMap(liteMap2, applySlepianTaper=applySlepianTaper,
+                         nresForSlepian=nresForSlepian, threads=threads)
     p2d1 = powerFromFFT(ft1)
     p2d2 = powerFromFFT(ft2)
     p2dx = powerFromFFT(ft1,ft2)
 
     p2dNoise  = powerFromFFT(ft1,ft2)
-
-    ## p2dNoise.powerMap[:,:] = (p2d1.powerMap[:,:] +\
-    ##                               p2d2.powerMap[:,:] -\
-    ##                               2*p2dx.powerMap[:,:])/2.0
-
-    p2dNoise.powerMap[:,:] = (p2d1.powerMap[:,:] \
-                              - p2dx.powerMap[:,:])
+    p2dNoise.powerMap[:,:] = (p2d1.powerMap[:,:] - p2dx.powerMap[:,:])
     
     return p2dNoise
+#end noisePowerFromLiteMaps
 
+#-------------------------------------------------------------------------------
 def readBinningFile(binningFile):
     """
     @brief reads a binning file.

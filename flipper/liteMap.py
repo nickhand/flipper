@@ -5,24 +5,29 @@
 updates by Nick Hand
 """
 
-import copy, os, sys
+import copy, os, sys, trace, time
 import numpy, scipy
 import pylab
 import copy
 import pyfits
 from astLib import *
 from flipperUtils import *
-from fftTools import fftFromLiteMap
 import fftTools
-import trace
 import healpy
-import flipperUtils as utils
-import time
 from scipy.interpolate import splrep,splev, interp1d, interp2d
+
+have_pyFFTW = True
+try:
+    from pyfftw.interfaces.numpy_fft import fftshift, ifftshift, fftfreq, fft2, ifft2
+except:
+    have_pyFFTW = False
+    from numpy.fft import fftshift, ifftshift, fftfreq, fft2, ifft2
+    
 if hasattr(numpy, 'pad'):
     pad = numpy.pad
 else:
     pad = zero_pad
+
     
 class gradMap:
     """
@@ -122,22 +127,39 @@ class liteMap:
 
         return masked
         
-    def fillFourierTransform(self, ell, cl, elTrim=30000):
+    def fillFourierTransform(self, ell, cl, ftMap=None, elTrim=30000, threads=1):
         """
-        @brief fill the fourier transform of the map with the 1D values specified by (ell, cl)
-        @param ell: 1D array of ell values to fill in (numpy.array)
-        @param cl: 1D array of cl values to fill in (numpy.array)
-        @keyword elTrim: the only fill in values ell < elTrim
+        Fill the fourier transform of the map with the 1D values specified by 
+        (ell, cl).
         
-        @return a fftTools.fft object with filled in kMap attribute
+        Parameters
+        ----------
+        ell : array_like 
+            The 1D array of ell values to fill in.
+        cl : array_like
+            The 1D array of cl values to fill in.
+        ftMap : fftTools.fft2D, optional
+            If given, fill this fourier transform object to save time., Default
+            is ``None``. This will not be overwritten.
+        elTrim : float, optional 
+            Only fill in values ell < elTrim. Default is 30000.
+        threads : int, optional
+            Number of threads to use in pyFFTW calculations. Default is 1.
+            
+        Returns
+        -------
+        ft : fftTools.fft2D 
+            The fft2D object with `kMap` attribute filled as specified
         """
-        
         # set the max ell to infty if not specified
         if elTrim == None:
             elTrim = numpy.inf
             
         # the fourier transform 
-        ft = fftTools.fftFromLiteMap(self)
+        if ftMap is None:
+            ft = fftTools.fftFromLiteMap(self, threads=threads)
+        else:
+            ft = ftMap.copy()
         ft.kMap[:] = 0.
 
         # make an interpolation function for real and imaginary parts
@@ -169,18 +191,24 @@ class liteMap:
         ft.kMap[id] = 0.
         
         return ft
+    #end fillFourierTransform
         
-    def fillWithGaussianRandomField(self,ell,Cell,bufferFactor = 1):
+    #---------------------------------------------------------------------------
+    def fillWithGaussianRandomField(self, ell, Cell, bufferFactor=1, threads=1):
         """
-        Generates a GRF from an input power spectrum specified as ell, Cell 
-        BufferFactor =1 means the map will be periodic boundary function
-        BufferFactor > 1 means the map will be genrated on  a patch bufferFactor times 
-        larger in each dimension and then cut out so as to have non-periodic bcs.
+        Generate a Gaussian random field from an input power spectrum specified 
+        as ell, Cell.
         
-        Fills the data field of the map with the GRF realization
+        Notes
+        -----
+        BufferFactor = 1 means the map will have periodic boundary function, while
+        BufferFactor > 1 means the map will be genrated on a patch bufferFactor 
+        times larger in each dimension and then cut out so as to have 
+        non-periodic boundary conditions.
+        
+        Fills the data field of the map with the GRF realization.
         """
-        
-        ft = fftFromLiteMap(self)
+        ft = fftTools.fftFromLiteMap(self, threads=threads)
         Ny = self.Ny*bufferFactor
         Nx = self.Nx*bufferFactor
         
@@ -190,8 +218,8 @@ class liteMap:
         realPart = numpy.zeros([Ny,Nx])
         imgPart  = numpy.zeros([Ny,Nx])
         
-        ly = numpy.fft.fftfreq(Ny,d = self.pixScaleY)*(2*numpy.pi)
-        lx = numpy.fft.fftfreq(Nx,d = self.pixScaleX)*(2*numpy.pi)
+        ly = fftfreq(Ny,d = self.pixScaleY)*(2*numpy.pi)
+        lx = fftfreq(Nx,d = self.pixScaleX)*(2*numpy.pi)
         #print ly
         modLMap = numpy.zeros([Ny,Nx])
         iy, ix = numpy.mgrid[0:Ny,0:Nx]
@@ -220,25 +248,29 @@ class liteMap:
         
         kMap = realPart+1j*imgPart
         
-        data = numpy.real(numpy.fft.ifft2(kMap)) 
-        
+        if have_pyFFTW:
+            data = numpy.real(ifft2(kMap, threads=threads)) 
+        else:
+            data = numpy.real(ifft2(kMap))
         b = bufferFactor
         self.data = data[(b-1)/2*self.Ny:(b+1)/2*self.Ny,(b-1)/2*self.Nx:(b+1)/2*self.Nx]
         
-        
-
-
-    def fillWithGRFFromTemplate(self,twodPower,bufferFactor = 1):
+    def fillWithGRFFromTemplate(self,twodPower, bufferFactor=1, threads=1):
         """
-        Generates a GRF from an input power spectrum specified as a 2d powerMap
-        BufferFactor =1 means the map will be periodic boundary function
-        BufferFactor > 1 means the map will be genrated on  a patch bufferFactor times 
-        larger in each dimension and then cut out so as to have non-periodic bcs.
+        Generate a Gaussian random field from an input power spectrum 
+        specified as a 2d powerMap
         
-        Fills the data field of the map with the GRF realization
+        Notes
+        -----
+        BufferFactor = 1 means the map will have periodic boundary function, while
+        BufferFactor > 1 means the map will be genrated on a patch bufferFactor 
+        times larger in each dimension and then cut out so as to have 
+        non-periodic boundary conditions.
+        
+        Fills the data field of the map with the GRF realization.
         """
         
-        ft = fftFromLiteMap(self)
+        ft = fftTools.fftFromLiteMap(self, threads=threads)
         Ny = self.Ny*bufferFactor
         Nx = self.Nx*bufferFactor
         
@@ -249,8 +281,8 @@ class liteMap:
         realPart = numpy.zeros([Ny,Nx])
         imgPart  = numpy.zeros([Ny,Nx])
         
-        ly = numpy.fft.fftfreq(Ny,d = self.pixScaleY)*(2*numpy.pi)
-        lx = numpy.fft.fftfreq(Nx,d = self.pixScaleX)*(2*numpy.pi)
+        ly = fftfreq(Ny,d = self.pixScaleY)*(2*numpy.pi)
+        lx = fftfreq(Nx,d = self.pixScaleX)*(2*numpy.pi)
         #print ly
         modLMap = numpy.zeros([Ny,Nx])
         iy, ix = numpy.mgrid[0:Ny,0:Nx]
@@ -262,9 +294,9 @@ class liteMap:
 
         if bufferFactor > 1 or twodPower.Nx != Nx or twodPower.Ny != Ny:
             
-            lx_shifted = numpy.fft.fftshift(twodPower.lx)
-            ly_shifted = numpy.fft.fftshift(twodPower.ly)
-            twodPower_shifted = numpy.fft.fftshift(twodPower.powerMap)
+            lx_shifted = fftshift(twodPower.lx)
+            ly_shifted = fftshift(twodPower.ly)
+            twodPower_shifted = fftshift(twodPower.powerMap)
             
             f_interp = interp2d(lx_shifted, ly_shifted, twodPower_shifted)
             
@@ -278,8 +310,8 @@ class liteMap:
             # ll = numpy.ravel(modLMap)
             # kk = splev(ll,s)
             
-            kk = f_interp(numpy.fft.fftshift(lx), numpy.fft.fftshift(ly))
-            kk = numpy.fft.ifftshift(kk)
+            kk = f_interp(fftshift(lx), fftshift(ly))
+            kk = ifftshift(kk)
             
             # id = numpy.where(modLMap > ell.max())
             # kk[id] = 0.
@@ -302,8 +334,10 @@ class liteMap:
         
         
         kMap = realPart+1j*imgPart
-        
-        data = numpy.real(numpy.fft.ifft2(kMap)) 
+        if have_pyFFTW:
+            data = numpy.real(ifft2(kMap, threads=threads)) 
+        else:
+            data = numpy.real(ifft2(kMap))
         
         b = bufferFactor
         self.data = data[(b-1)/2*self.Ny:(b+1)/2*self.Ny,(b-1)/2*self.Nx:(b+1)/2*self.Nx]
@@ -485,20 +519,29 @@ class liteMap:
         del data
         return smMap
 
-    def convolveWithBeam(self, ell, B_ell):
+    def convolveWithBeam(self, ell, B_ell, threads=1):
         """
-        @brief Return a liteMap object holding the data convolved with the beam 
-               specified as input in Fourier space
-        @param ell the 1D ell values corresponding to the beam B_ell
-        @param B_ell the 1D beam values in Fourier space
-        """
+        Return a liteMap object holding the data convolved with the beam 
+        specified as input in Fourier space
         
-        beamFT = self.fillFourierTransform(ell, B_ell, elTrim=numpy.amax(ell))
-        mapFT = fftTools.fftFromLiteMap(self)
+        Parameters
+        ----------
+        ell : array_like
+            The 1D ell values corresponding to the beam.
+        B_ell : array_like, 
+            The 1D beam values in Fourier space.
+        threads : int, optional
+            Number of threads to use in pyFFTW calculations. Default is 1.
+        """
+        beamFT = self.fillFourierTransform(ell, B_ell, elTrim=numpy.amax(ell), threads=threads)
+        mapFT = fftTools.fftFromLiteMap(self, threads=threads)
         
         mapFT.kMap[:] *= beamFT.kMap[:]
         
-        data_conv = numpy.real(numpy.fft.ifft2(mapFT.kMap))
+        if have_pyFFTW:
+            data_conv = numpy.real(ifft2(mapFT.kMap, threads=threads))
+        else:
+            data_conv = numpy.real(ifft2(mapFT.kMap))
         out = self.copy()
         out.data[:] = data_conv[:]
         return out
@@ -510,7 +553,7 @@ class liteMap:
         are 1-D arrays representing the filter.
         @return The filtered liteMap
         """
-        ft = fftFromLiteMap(self)
+        ft = fftTools.fftFromLiteMap(self)
         filtData = ft.mapFromFFT(kFilterFromList=lFl,setMeanToZero=setMeanToZero)
         filtMap = self.copy()
         filtMap.data[:] = filtData[:]
@@ -908,19 +951,33 @@ def normalizeWCS(map0,map1):
     map1 = liteMapFromDataAndWCS(data,wcs1)
 
 
-def upgradePixelPitch( m, N = 1 ):
+def upgradePixelPitch(m, N=1, threads=1):
     """
-    @brief go to finer pixels with fourier interpolation
-    @param m a liteMap
-    @param N go to 2^N times smaller pixels
-    @return the map with smaller pixels
+    Go to finer pixels with fourier interpolation.
+    
+    Parameters
+    ----------
+    m : liteMap
+        The liteMap object holding the data to upgrade the pixel size of. 
+    N : int, optional
+        Go to 2^N times smaller pixels. Default is 1.
+    threads : int, optional
+        Number of threads to use in pyFFTW calculations. Default is 1.
+    
+    Returns
+    -------
+    mNew : liteMap
+        The map with smaller pixels.
     """
     Ny = m.Ny*2**N
     Nx = m.Nx*2**N
     npix = Ny*Nx
 
-    ft = numpy.fft.fft2(m.data)
-    ftShifted = numpy.fft.fftshift(ft)
+    if have_pyFFTW:
+        ft = fft2(m.data, threads=threads)
+    else:
+        ft = fft2(m.data)
+    ftShifted = fftshift(ft)
     newFtShifted = numpy.zeros((Ny, Nx), dtype=numpy.complex128)
 
     # From the numpy.fft.fftshift help:
@@ -945,18 +1002,27 @@ def upgradePixelPitch( m, N = 1 ):
     
     newFtShifted[offsetY:offsetY+m.Ny,offsetX:offsetX+m.Nx] = ftShifted
     del ftShifted
-    ftNew = numpy.fft.ifftshift(newFtShifted)
+    ftNew = ifftshift(newFtShifted)
     del newFtShifted
 
     # Finally, deconvolve by the pixel window
     mPix = numpy.copy(numpy.real(ftNew))
     mPix[:] = 0.0
     mPix[mPix.shape[0]/2-(2**(N-1)):mPix.shape[0]/2+(2**(N-1)),mPix.shape[1]/2-(2**(N-1)):mPix.shape[1]/2+(2**(N-1))] = 1./(2.**N)**2
-    ftPix = numpy.fft.fft2(mPix)
+    
+    if have_pyFFTW:
+        ftPix = fft2(mPix, threads=threads)
+    else:
+        ftPix = fft2(mPix)
+        
     del mPix
     inds = numpy.where(ftNew != 0)
     ftNew[inds] /= numpy.abs(ftPix[inds])
-    newData = numpy.fft.ifft2(ftNew)*(2**N)**2
+    
+    if have_pyFFTW:
+        newData = ifft2(ftNew, threads=threads)*(2**N)**2
+    else:
+        newData = ifft2(ftNew)*(2**N)**2
     del ftNew
     del ftPix
 
