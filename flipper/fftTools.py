@@ -98,7 +98,7 @@ class fft2D:
         
         kMap[:,:] *= kFilter0[:,:]
         if have_pyFFTW: 
-            data = numpy.real(ifft2(kMap), threads=threads)
+            data = numpy.real(ifft2(kMap, threads=threads))
         else:
             data = numpy.real(ifft2(kMap))
         if returnFFT:
