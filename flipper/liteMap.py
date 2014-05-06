@@ -54,6 +54,9 @@ class liteMap:
         """
         return copy.copy(self)
 
+    def area(self, edge_pixels=0):
+        return (self.Nx-2*edge_pixels)*(self.Ny-2*edge_pixels)*self.pixScaleX*self.pixScaleY*(180./numpy.pi)**2
+    
     def __getstate__(self):
         dic =  self.__dict__.copy()
         dic['header'] = dic['header'].copy()
