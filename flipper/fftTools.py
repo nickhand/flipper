@@ -1090,7 +1090,7 @@ def powerFromLiteMap(liteMap, liteMap2=None, applySlepianTaper=False,
     Returns the power spectrum of a liteMap or a cross spectrum of two liteMaps.
     
     """
-    ft = fftFromLiteMap(liteMap, applySlepianTaper=pplySlepianTaper,
+    ft = fftFromLiteMap(liteMap, applySlepianTaper=applySlepianTaper,
                         nresForSlepian=nresForSlepian, threads=threads)
     if liteMap2 == None:
         p2d = powerFromFFT(ft)
