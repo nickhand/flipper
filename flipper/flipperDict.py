@@ -78,7 +78,6 @@ class flipperDict( dict ):
                     
             exec(line)
             s = line.split('=', 1)
-            if len(s) != 2:
                 
             key = s[0].strip()
             val = eval(s[1].strip()) # XXX:make safer
