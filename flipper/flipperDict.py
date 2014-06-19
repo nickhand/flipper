@@ -70,10 +70,12 @@ class flipperDict( dict ):
                 for match in matches:
                     try: 
                         env_var = os.environ[match.split('$')[-1]]
+                        line = line.replace(match, env_var)
                     except:
-                        raise ValueError('Environment variable %s does not exist' %match)
+                        pass
+                        #raise ValueError('Environment variable %s does not exist' %match)
                         
-                    line = line.replace(match, env_var)
+                    
             exec(line)
             s = line.split('=')
             if len(s) != 2:
