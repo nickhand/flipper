@@ -77,11 +77,9 @@ class flipperDict( dict ):
                         
                     
             exec(line)
-            s = line.split('=')
+            s = line.split('=', 1)
             if len(s) != 2:
-                print "Error parsing line:"
-                print line
-                continue
+                
             key = s[0].strip()
             val = eval(s[1].strip()) # XXX:make safer
             self[key] = val
