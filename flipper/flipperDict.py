@@ -10,6 +10,7 @@ import os
 import string
 import re
 import copy
+import numpy # for eval'ing numpy calls
 
 def ask_for( key ):
     s = raw_input( "flipperDict: enter value for '%s': " % key )
