@@ -972,6 +972,8 @@ def upgradePixelPitch(m, N=1, threads=1):
     mNew : liteMap
         The map with smaller pixels.
     """
+    if N < 1: return m.copy()
+    
     Ny = m.Ny*2**N
     Nx = m.Nx*2**N
     npix = Ny*Nx
